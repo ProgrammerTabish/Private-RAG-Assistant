@@ -115,30 +115,38 @@ def serve(host: str = "127.0.0.1", port: int = 8000):
 
 
 @app.command()
-def doctor():
+def doctor(before_build: bool = typer.Option(False, "--before-build",
+                                             help="only inputs and endpoints; a missing index is not an error")):
     """Check configuration, input files, index and model endpoints."""
     s = _init("doctor")
     ok = True
 
-    def line(good: bool, msg: str):
+    def line(good: bool, msg: str, optional: bool = False):
         nonlocal ok
+        if optional and not good:
+            typer.secho("  TODO " + msg, fg="yellow")
+            return
         ok &= good
         typer.secho(("  OK   " if good else "  FAIL ") + msg, fg="green" if good else "red")
 
     line(s.pdf_dir.exists(), f"pdf_dir {s.pdf_dir} ({len(list(s.pdf_dir.glob('*.pdf'))) if s.pdf_dir.exists() else 0} PDFs)")
     line(s.manifest_path.exists(), f"manifest {s.manifest_path}")
     line(s.eval_path.exists(), f"eval set {s.eval_path}")
-    line(s.chunks_path.exists(), f"chunks {s.chunks_path}")
+    line(s.chunks_path.exists(), f"chunks {s.chunks_path}", optional=before_build)
     try:
         from .index.store import VectorStore
         st = VectorStore(s)
         meta = st.read_meta()
         n = st.count()
-        line(n == meta.get("points"), f"qdrant ({s.qdrant_mode}) collection '{s.collection}' points={n}")
+        line(n == meta.get("points"), f"qdrant ({s.qdrant_mode}) collection '{s.collection}' points={n}",
+             optional=before_build)
         line(meta.get("embed_backend") == s.embed_backend,
-             f"index embedder {meta.get('embed_backend')} == configured {s.embed_backend}")
+             f"index embedder {meta.get('embed_backend')} == configured {s.embed_backend}", optional=before_build)
     except Exception as exc:
-        line(False, f"index: {exc}")
+        line(False, f"index: {exc}", optional=before_build)
+    finally:
+        from .index.store import close_clients
+        close_clients()   # release the local Qdrant lock for the next command
     import httpx
     for name, url in (("llm", s.llm_base_url and f"{s.llm_base_url.rstrip('/')}/models"),
                       ("embed", s.embed_url and f"{s.embed_url.rstrip('/')}/models"),

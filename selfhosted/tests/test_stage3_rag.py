@@ -190,6 +190,8 @@ def test_langchain_openai_client_against_mock_vllm(indexed):
         s = _openai_settings(indexed, srv.url)
         a = RagService(s).ask("When must a major ICT incident be reported?")
     assert a.status == "answered" and len(a.citations) == 2 and a.model.startswith("meta-llama")
+    # token usage of both calls (rewrite + answer) is recorded for the cost estimate
+    assert a.usage == {"llm_calls": 2, "prompt_tokens": 200, "completion_tokens": 40}
     assert STATE["requests"][0]["messages"][0]["content"].startswith("SEARCH QUERY REWRITE")
     assert STATE["requests"][0]["model"] == "meta-llama/Llama-3.3-70B-Instruct"
 

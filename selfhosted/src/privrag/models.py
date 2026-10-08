@@ -95,6 +95,7 @@ class Answer(BaseModel):
     confidence_label: Literal["high", "medium", "low"]
     retrieved: int
     retrieved_refs: list[str] = Field(default_factory=list)   # "doc_id | section | pages" of all chunks shown to the LLM
+    usage: dict[str, int] = Field(default_factory=dict)       # LLM tokens for this question (all calls)
     model: str
     latency_ms: dict[str, float]
     warnings: list[str] = Field(default_factory=list)

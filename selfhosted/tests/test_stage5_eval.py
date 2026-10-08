@@ -57,6 +57,8 @@ def test_eval_end_to_end(settings, tmp_path):
     out = pd.read_excel(s["sheet"], sheet_name="Answers")
     assert list(out["id"]) == ["T1", "T2"] and "Score (1/0.5/0)" in out.columns
     assert json.loads(open(s["report"], encoding="utf-8").read())["summary"]["questions"] == 2
+    partial = list(settings.reports_dir.glob("eval_*.partial.jsonl"))
+    assert len(partial) == 1 and len(partial[0].read_text(encoding="utf-8").splitlines()) == 2
 
 
 def test_eval_missing_file(settings, tmp_path):
@@ -64,3 +66,14 @@ def test_eval_missing_file(settings, tmp_path):
     with pytest.raises(PrivRagError) as e:
         run_eval(settings)
     assert e.value.code == "EVAL_FILE_MISSING"
+
+
+def test_embedding_progress_logged(settings, tmp_path):
+    from privrag.embed.base import LSAEmbedder, embed_in_batches
+    texts = [f"Text {i} über Meldepflichten und Sorgfaltspflichten Nummer {i}" for i in range(400)]
+    e = LSAEmbedder(dim=8, model_path=tmp_path / "m.joblib")
+    e.fit(texts)
+    v = embed_in_batches(e, texts, batch_size=32)
+    assert v.shape == (400, 8)
+    log = (settings.log_dir / "latest.jsonl").read_text(encoding="utf-8")
+    assert "embedding progress 400/400 (100%)" in log and "eta_s" in log

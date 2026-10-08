@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     embed_model: str = "BAAI/bge-m3"
     embed_url: str | None = None  # OpenAI-compatible /v1/embeddings (TEI or vLLM)
     embed_batch_size: int = Field(32, ge=1)
+    embed_timeout_s: float = Field(120.0, gt=0, description="per embedding request (CPU servers need more)")
 
     # ---- vector store ----------------------------------------------------
     qdrant_mode: Literal["memory", "path", "server"] = "path"
@@ -80,6 +81,7 @@ class Settings(BaseSettings):
     llm_model: str = "meta-llama/Llama-3.3-70B-Instruct"
     llm_temperature: float = Field(0.0, ge=0, le=2)
     llm_max_tokens: int = Field(900, ge=16)
+    max_source_chars: int = Field(1800, ge=200, description="characters per source shown to the LLM")
     llm_timeout_s: float = Field(120.0, gt=0)
     llm_max_retries: int = Field(2, ge=0, le=10)
     min_citations: int = Field(2, ge=0, description="KPI: at least 2 verifiable sources per answer")

@@ -75,6 +75,16 @@ def keypoint_proxy(expected: str, answer: str) -> float | None:
     return round(hits / len(nums), 2)
 
 
+def _mean_usage(rows: list[dict], key: str) -> float | None:
+    vals = [r["usage"].get(key) for r in rows if r.get("usage") and r["usage"].get("llm_calls")]
+    return round(statistics.mean(vals), 1) if vals else None
+
+
+def _p50(vals: list) -> float | None:
+    vals = [v for v in vals if v is not None]
+    return round(statistics.median(vals), 1) if vals else None
+
+
 def load_questions(path: Path) -> list[dict]:
     import pandas as pd
 
@@ -96,6 +106,8 @@ def run_eval(s: Settings, limit: int | None = None, use_glossary: bool = True, s
             questions = questions[:limit]
         svc = service or RagService(s, retriever=Retriever(s, use_glossary=use_glossary))
         rows: list[dict] = []
+        partial = s.reports_dir / f"eval_{current_run_id()}.partial.jsonl"
+        log.info("eval started", extra={"questions": len(questions), "partial_results": str(partial)})
         t_all = time.perf_counter()
         for q in questions:
             qid = q["ID"]
@@ -113,7 +125,8 @@ def run_eval(s: Settings, limit: int | None = None, use_glossary: bool = True, s
                     "question": q["Question"], "status": a.status, "answer": a.answer,
                     "citations": [f"{c.file} | {c.section or '-'} | p. {c.page_start}-{c.page_end}" for c in a.citations],
                     "n_citations": len(a.citations), "confidence": a.confidence,
-                    "latency_ms": a.latency_ms.get("total"), "warnings": a.warnings,
+                    "latency_ms": a.latency_ms.get("total"), "latency_breakdown_ms": a.latency_ms,
+                    "usage": a.usage, "retrieved_refs": a.retrieved_refs, "warnings": a.warnings,
                     "expected_sources": q.get("Expected source(s)"), "expected_answer": q.get("Expected answer (key points)"),
                     "out_of_scope": is_oos,
                 }
@@ -130,6 +143,9 @@ def run_eval(s: Settings, limit: int | None = None, use_glossary: bool = True, s
                                                 for d, sec in exp_secs for c in a.citations) if exp_secs else None)
                     row["keypoint_proxy"] = keypoint_proxy(q.get("Expected answer (key points)"), a.answer)
                 rows.append(row)
+                # partial results after every question - a long CPU run that is interrupted is not lost
+                with open(partial, "a", encoding="utf-8") as pf:
+                    pf.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
                 r.update(status=a.status, citations=len(a.citations), doc_cited=row.get("doc_cited"),
                          section_cited=row.get("section_cited"))
         wall = time.perf_counter() - t_all
@@ -157,6 +173,11 @@ def run_eval(s: Settings, limit: int | None = None, use_glossary: bool = True, s
             "latency_ms_p50": round(statistics.median(lats), 1) if lats else None,
             "latency_ms_p95": round(sorted(lats)[max(0, int(len(lats) * 0.95) - 1)], 1) if lats else None,
             "wall_s": round(wall, 1),
+            "llm_prompt_tokens_mean": _mean_usage(rows, "prompt_tokens"),
+            "llm_completion_tokens_mean": _mean_usage(rows, "completion_tokens"),
+            "generate_ms_p50": _p50([r["latency_breakdown_ms"].get("generate") for r in rows]),
+            "retrieve_ms_p50": _p50([r["latency_breakdown_ms"].get("retrieve") for r in rows]),
+            "rewrite_ms_p50": _p50([r["latency_breakdown_ms"].get("rewrite") for r in rows]),
             "cost_per_1k_queries_eur": round(s.gpu_hour_cost * (wall / 3600) / max(len(rows), 1) * 1000, 2),
             "note": ("Local run with stand-in models (LSA embeddings, extractive fake LLM): measures the pipeline, "
                      "not final answer quality. Accuracy >= 85% is graded by coaches on the Azure run "

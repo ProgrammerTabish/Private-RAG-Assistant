@@ -37,6 +37,23 @@ pytest                  # 113 tests, ~15 s
 Each stage is idempotent: unchanged documents/indexes are skipped; a changed PDF, setting or
 ingestion code re-processes only what is affected. `--force` / `--recreate` rebuild everything.
 
+## Local test with the real BGE-M3 (Ollama on a laptop)
+
+`scripts/run_local_ollama.ps1` reproduces the Azure setup on a Windows laptop: Ollama serves
+**BGE-M3** on `/v1/embeddings` (same contract as TEI on Azure) and a small open LLM on
+`/v1/chat/completions` (same contract as vLLM). Results go to `data_ollama/` so the stand-in
+results in `data/` stay untouched.
+
+```powershell
+cd D:\Private-RAG-Assistant
+powershell -ExecutionPolicy Bypass -File selfhosted\scripts\run_local_ollama.ps1            # full run
+powershell -ExecutionPolicy Bypass -File selfhosted\scripts\run_local_ollama.ps1 -Limit 5   # quick check
+```
+
+Options: `-LlmModel qwen2.5:7b` (bigger, slower), `-LlmModel none` (retrieval only, fake LLM),
+`-TopK 8 -MaxSourceChars 1800` (Azure prompt size). Compare runs with
+`python scripts/compare_evals.py A=data/reports/eval_x.json B=data_ollama/reports/eval_y.json`.
+
 ## How retrieval works (and why)
 
 1. The English question is also turned into a **German query** (LLM rewrite on Azure; plus a

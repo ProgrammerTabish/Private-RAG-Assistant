@@ -31,15 +31,15 @@ RETRY_FEW_CITATIONS = ("Your previous answer cited fewer than {n} sources. Rewri
                        "numbered sources where they support the answer. If only one source is relevant, keep it.")
 
 
-def format_sources(chunks: list[RetrievedChunk]) -> str:
+def format_sources(chunks: list[RetrievedChunk], max_chars: int = MAX_SOURCE_CHARS) -> str:
     parts = []
     for i, r in enumerate(chunks, 1):
         c = r.chunk
         head = f"[{i}] {c.file} | {c.section or 'no section'} | {c.pages_label}"
-        body = c.text if len(c.text) <= MAX_SOURCE_CHARS else c.text[:MAX_SOURCE_CHARS] + " …"
+        body = c.text if len(c.text) <= max_chars else c.text[:max_chars] + " …"
         parts.append(f"{head}\n{body}")
     return "\n\n".join(parts)
 
 
-def answer_user_prompt(question: str, chunks: list[RetrievedChunk]) -> str:
-    return f"Question: {question}\n\nSources:\n{format_sources(chunks)}\n\nAnswer (with [n] citations):"
+def answer_user_prompt(question: str, chunks: list[RetrievedChunk], max_chars: int = MAX_SOURCE_CHARS) -> str:
+    return f"Question: {question}\n\nSources:\n{format_sources(chunks, max_chars)}\n\nAnswer (with [n] citations):"

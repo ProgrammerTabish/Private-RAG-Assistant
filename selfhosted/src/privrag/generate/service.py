@@ -25,6 +25,14 @@ OUT_OF_SCOPE_TEXT = ("The curated regulatory documents do not contain informatio
                      "Please rephrase it or consult the responsible department.")
 
 
+def _usage_since(llm, mark: int) -> dict[str, int]:
+    log_ = getattr(llm, "usage_log", None) or []
+    calls = log_[mark:]
+    return {"llm_calls": len(calls),
+            "prompt_tokens": sum(c.get("prompt_tokens", 0) for c in calls),
+            "completion_tokens": sum(c.get("completion_tokens", 0) for c in calls)}
+
+
 class RagService:
     def __init__(self, s: Settings, retriever: Retriever | None = None, llm: ChatLLM | None = None):
         self.s = s
@@ -57,12 +65,14 @@ class RagService:
             log.info("question received", extra={"chars": len(question), "doc_filter": doc_ids, "reg_filter": regulators})
 
             refs: list[str] = []
+            usage_mark = len(getattr(self.llm, "usage_log", []))
 
             def done(status: str, text: str, cits=None, conf: float = 0.0, retrieved: int = 0) -> Answer:
                 lat["total"] = round((time.perf_counter() - t_all) * 1000, 1)
                 ans = Answer(question=question, answer=text, status=status, citations=cits or [],
                              confidence=conf, confidence_label=confidence_label(conf), retrieved=retrieved,
                              retrieved_refs=refs, model=self.llm.model, latency_ms=lat, warnings=warnings,
+                             usage=_usage_since(self.llm, usage_mark),
                              request_id=request_id)
                 lvl = log.error if status == "error" else log.info
                 lvl("answer ready", extra={"status": status, "citations": len(ans.citations),
@@ -98,7 +108,7 @@ class RagService:
 
             # 3. generate (+1 retry if too few citations)
             t0 = time.perf_counter()
-            user = prompts.answer_user_prompt(question, chunks)
+            user = prompts.answer_user_prompt(question, chunks, self.s.max_source_chars)
             try:
                 with stage("rag.generate"), step("generate", log) as r:
                     raw = self.llm.complete(prompts.ANSWER_SYSTEM, user)

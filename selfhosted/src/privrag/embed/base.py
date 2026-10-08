@@ -230,19 +230,32 @@ def get_embedder(s: Settings) -> Embedder:
     if s.embed_backend == "bge-m3":
         return BGEM3Embedder(s.embed_model, s.embed_batch_size)
     if s.embed_backend == "remote":
-        return RemoteEmbedder(s.embed_url or "", s.embed_model)
+        return RemoteEmbedder(s.embed_url or "", s.embed_model, timeout=s.embed_timeout_s)
     raise EmbeddingError(f"unknown embed backend {s.embed_backend}", code="EMBED_BACKEND_UNKNOWN")
 
 
 def embed_in_batches(embedder: Embedder, texts: list[str], batch_size: int) -> np.ndarray:
+    """Embed in batches with progress logging (~every 5 %) incl. throughput and ETA -
+    embedding 12k chunks on a CPU endpoint takes a while and must not look hung."""
     out = []
-    for i in range(0, len(texts), batch_size):
+    n = len(texts)
+    t0 = time.perf_counter()
+    next_report = 0.05
+    for i in range(0, n, batch_size):
         batch = texts[i:i + batch_size]
         try:
             out.append(embedder.embed_documents(batch))
         except EmbeddingError as exc:
             exc.context.update(batch_start=i, batch_size=len(batch))
             raise
+        done = min(i + batch_size, n)
+        if n >= 200 and (done / n >= next_report or done == n):
+            el = time.perf_counter() - t0
+            rate = done / el if el > 0 else 0.0
+            log.info(f"embedding progress {done}/{n} ({100 * done / n:.0f}%)",
+                     extra={"count": done, "rate_per_s": round(rate, 1),
+                            "eta_s": round((n - done) / rate) if rate else None})
+            next_report += 0.05
     return np.vstack(out) if out else np.zeros((0, embedder.dim), dtype=np.float32)
 
 

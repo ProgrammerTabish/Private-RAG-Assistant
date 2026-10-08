@@ -36,6 +36,7 @@ class OpenAICompatLLM:
         from langchain_openai import ChatOpenAI
 
         self.model = s.llm_model
+        self.usage_log: list[dict] = []     # token usage per call (read by the service)
         self._llm = ChatOpenAI(
             base_url=s.llm_base_url, api_key=s.llm_api_key, model=s.llm_model,
             temperature=s.llm_temperature, max_tokens=s.llm_max_tokens,
@@ -63,6 +64,8 @@ class OpenAICompatLLM:
             raise LLMError("LLM returned an empty answer", code="LLM_EMPTY")
         meta = getattr(msg, "response_metadata", {}) or {}
         usage = meta.get("token_usage") or {}
+        self.usage_log.append({"prompt_tokens": usage.get("prompt_tokens") or 0,
+                               "completion_tokens": usage.get("completion_tokens") or 0})
         log.debug("llm usage", extra={"prompt_tokens": usage.get("prompt_tokens"),
                                       "completion_tokens": usage.get("completion_tokens"),
                                       "finish_reason": meta.get("finish_reason")})
@@ -86,6 +89,7 @@ class FakeLLM:
         self.mode = mode
         self.delay_s = delay_s
         self.calls: list[tuple[str, str]] = []
+        self.usage_log: list[dict] = []
 
     def complete(self, system: str, user: str, max_tokens: int | None = None) -> str:
         self.calls.append((system, user))
