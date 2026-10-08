@@ -1,0 +1,34 @@
+The first part making the autoconfigured using azure provided services is already done and the front end and backend is also under construction so now we are going to work only of our custom solution from the problem description from here on. The provided 50 pdf are reused. 
+Note: You have access to the azure cli and azure logged into the browser do not change any preconfigured stuff that is already build only use it for deployment and endpoint creation.
+#Use Case13: Al Compliance Document Reader for Banking - Private RAG Assistant (Specific-Group GmbH)
+Motivation
+Banks in the DACH region operate under an ever-growing volume of regulatory documentation (BaFin circulars, MaRisk, EBA guidelines, internal policies). Compliance, risk and second-line-of-defence teams spend significant time searching, cross-referencing and quoting these documents. Public LLM services (e.g. ChatGPT) cannot/shouldnot be used because documents and questions are highly confidential and subject to banking secrecy.​
+Target
+Build a privacy-preserving AI assistant that lets a bank employee ask natural-language questions on a curated body of regulatory and internal documents and receive precise, citation-backed answers, with the LLM and all data running inside infrastructure fully controlled by the bank. A core deliverable is a comparative evaluation of two deployment architectures (managed vs. self-hosted) with a clear recommendation.​
+Approach
+Curate a sample corpus of public regulatory documents (BaFin, MaRisk, EBA) as the demo dataset.​
+Build an ingestion pipeline (PDF parsing via Azure AI Document Intelligence, chunking, embedding) and index in Azure AI Search (vector + hybrid).​
+Implement two RAG variants in parallel: (A) Managed – Azure OpenAI Service (GPT-4o) inside the customer’s Azure tenant via Private Endpoint; (B) Self-hosted – open-source LLM (e.g. Llama 3.3 70B or Mixtral 8x22B) deployed on Azure ML Managed Online Endpoints or AKS with GPU nodes in the customer’s tenant. Model weights live on tenant-controlled storage.​
+Develop a chat-style web UI with source highlighting, confidence indicator and audit trail.​
+Benchmark both variants on the same evaluation set: answer accuracy, latency, cost per 1k queries, regulatory posture (where do weights run, where does data flow, AVV implications).​
+Document the decision matrix “Managed vs. Self-hosted” as guidance for regulated industries.​ ​
+Actors/Stakeholders
+Compliance officers, risk managers, internal audit, IT security and data-protection officers of a typical DACH bank. Internally: SPG Germany product/sales team driving the “Private AI” offering, SPG nearshore development team.​
+Business Value
+Tangible proof-of-concept and reference architecture for SPG’s “Private/On-Premise AI” go-to-market story in regulated industries, immediately reusable in concrete sales situations with banks and asset-finance institutions. The comparative evaluation provides a defensible answer to the typical customer question “why not just use ChatGPT?”. Productivity gain in compliance teams estimated at 20–30% on document-research tasks.​
+DoD/Success Metrics / KPIs
+Working web UI deployed on Azure; both RAG variants (managed and self-hosted) operational; ingestion of at least 50 regulatory documents; answers with at least 2 verifiable source citations per query; answer accuracy ≥ 85% on a prepared question set (graded by coaches); side-by-side benchmark table for both variants; architecture documentation with a clear “data & weights stay in tenant” statement for the self-hosted variant.​
+Distribution of Activities
+40% development and programming (ingestion pipeline, RAG backend, chat UI)
+30% AI training and integration (deployment of open-source LLM, prompt engineering, retrieval tuning, benchmark)
+15% architecture and security documentation (private-deployment story, AVV/MaRisk angle)
+15% user experience design (citation display, audit trail, comparison view).
+Technical prerequisites
+Azure AI Search (vector + hybrid), Azure Blob Storage, Azure AI Document Intelligence (PDF parsing), Azure App Service or Container Apps (web UI), Azure Key Vault, Azure Virtual Network with Private Endpoints. For variant A: Azure OpenAI Service (GPT-4o, embeddings). For variant B: Azure ML Managed Online Endpoints or Azure Kubernetes Service with GPU nodes (NC-series), running an open-source LLM (Llama 3.3, Mixtral or similar) plus open-source embedding model (BGE-M3 or E5). Programming languages: Python (FastAPI) for the backend, TypeScript/React for the frontend. Basic enablement for Azure, Azure ML and GitHub Copilot is recommended.​
+Additional information
+SPG will provide the curated sample document corpus, a prepared evaluation question set and access to an Azure subscription with GPU quota. The deliverables (reference architecture and benchmark) will feed into SPG’s “Private AI” reference architecture for regulated industries.​
+Candidate profile: Bachelor or Master students in Computer Science, Data Science or Information Systems. Useful knowledge: Python, basic NLP/LLM concepts, web development, interest in regulatory/compliance topics and cloud architecture. Prior exposure to vector search, RAG or model deployment (Hugging Face, vLLM) is a plus but not required – enablement will be provided.
+
+The project repo is in D:\Private-RAG-Assistant   
+
+We must use all opensource libraries and databases that can provide a complete solution​
