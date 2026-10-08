@@ -1,0 +1,51 @@
+file,regulator,doc_type,title,publication_date,language
+01_GwG.pdf,Bundestag,law,Geldwaeschegesetz (GwG),2026-06-29,de
+02_BaFin_AuA_AT.pdf,BaFin,guidance,BaFin Auslegungs- und Anwendungshinweise zum GwG - Allgemeiner Teil,2025-07-01,de
+03_BaFin_AuA_BT_Kreditinstitute.pdf,BaFin,guidance,BaFin Auslegungs- und Anwendungshinweise zum GwG - Besonderer Teil Kreditinstitute,2021-06-01,de
+04_EBA_Risikofaktoren.pdf,EBA,guideline,EBA/GL/2021/02 ML/TF Risk Factors Guidelines (consolidated),2023-10-03,en
+05_EBA_AML_Compliance_Officer.pdf,EBA,guideline,EBA/GL/2022/05 Leitlinien zur Rolle des Geldwaeschebeauftragten,2022-06-14,de
+06_EBA_Remote_Onboarding.pdf,EBA,guideline,EBA/GL/2022/15 Leitlinien zum Fern-Kundenannahmeprozess,2022-11-22,de
+07_EBA_De_Risking.pdf,EBA,guideline,EBA/GL/2023/04 Guidelines on ML/TF risk management and access to financial services,2023-03-31,en
+08_EBA_Travel_Rule.pdf,EBA,guideline,EBA/GL/2024/11 Travel Rule Guidelines,2024-07-04,en
+09_EU_Geldtransfer_2023_1113.pdf,EU,regulation,Verordnung (EU) 2023/1113 Geldtransferverordnung,2023-06-09,de
+10_BaFin_FIU_Verdachtsmeldungen.pdf,BaFin,guidance,BaFin/FIU Orientierungshilfe Unverzueglichkeit und Vollstaendigkeit von Verdachtsmeldungen (Paragraf 43 GwG),,de
+11_BaFin_Videoident.pdf,BaFin,circular,BaFin Rundschreiben 3/2017 (GW) Videoidentifizierungsverfahren,2017-04-10,de
+12_EU_Hochrisikodrittstaaten.pdf,European Commission,delegated_regulation,Delegierte Verordnung (EU) 2016/1675 Drittlaender mit hohem Risiko,2016-09-20,de
+13_Bundesbank_Finanzsanktionen_FAQ.pdf,Bundesbank,faq,Bundesbank Haeufig gestellte Fragen zu Finanzsanktionen,2026-06-01,de
+14_EU_Sanktionen_269_2014.pdf,Council of the EU,regulation,Verordnung (EU) Nr. 269/2014 Restriktive Massnahmen Ukraine,2014-03-17,de
+15_EU_Sanktionen_833_2014.pdf,Council of the EU,regulation,Verordnung (EU) Nr. 833/2014 Restriktive Massnahmen Russland,2014-07-31,de
+16_EU_Sanktionen_Belarus.pdf,Council of the EU,regulation,Verordnung (EG) Nr. 765/2006 Restriktive Massnahmen Belarus,2006-05-20,de
+17_EBA_Sanktionsleitlinien.pdf,EBA,guideline,EBA/GL/2024/14 and EBA/GL/2024/15 Guidelines on restrictive measures,2024-11-14,en
+18_EU_Kommission_Sanktions_FAQ.pdf,European Commission,faq,Commission Consolidated FAQs on sanctions against Russia and Belarus,2026-09-30,en
+19_AWG.pdf,Bundestag,law,Aussenwirtschaftsgesetz (AWG),2026-02-03,de
+20_AWV.pdf,Bundesregierung,ordinance,Aussenwirtschaftsverordnung (AWV),2026-03-11,de
+21_MaRisk_06_2026.pdf,BaFin,circular,MaRisk Rundschreiben 06/2026 (BA),2026-06-30,de
+22_KWG.pdf,Bundestag,law,Kreditwesengesetz (KWG),2026-05-12,de
+23_EBA_Internal_Governance.pdf,EBA,guideline,EBA/GL/2021/05 Leitlinien zur internen Governance,2021-07-02,de
+24_HinSchG.pdf,Bundestag,law,Hinweisgeberschutzgesetz (HinSchG),2026-09-25,de
+25_DSGVO.pdf,EU,regulation,Verordnung (EU) 2016/679 Datenschutz-Grundverordnung (DSGVO),2016-05-04,de
+26_BDSG.pdf,Bundestag,law,Bundesdatenschutzgesetz (BDSG),2026-07-03,de
+27_DORA_2022_2554.pdf,EU,regulation,Verordnung (EU) 2022/2554 DORA,2022-12-27,de
+28_DORA_IKT_Risikomanagement.pdf,European Commission,delegated_regulation,Delegierte Verordnung (EU) 2024/1774 IKT-Risikomanagement,2024-06-25,de
+29_DORA_Vorfallklassifizierung.pdf,European Commission,delegated_regulation,Delegierte Verordnung (EU) 2024/1772 Klassifizierung IKT-bezogener Vorfaelle,2024-06-25,de
+30_DORA_Vertragsleitlinie.pdf,European Commission,delegated_regulation,Delegierte Verordnung (EU) 2024/1773 Leitlinie fuer vertragliche Vereinbarungen mit IKT-Drittdienstleistern,2024-06-25,de
+31_DORA_Informationsregister.pdf,European Commission,implementing_regulation,Durchfuehrungsverordnung (EU) 2024/2956 Informationsregister,2024-12-02,de
+32_DORA_Meldefristen.pdf,European Commission,delegated_regulation,Delegierte Verordnung (EU) 2025/301 Inhalt und Fristen fuer Meldungen schwerwiegender IKT-Vorfaelle,2025-02-20,de
+33_DORA_Meldeformulare.pdf,European Commission,implementing_regulation,Durchfuehrungsverordnung (EU) 2025/302 Meldeformulare fuer IKT-Vorfaelle,2025-02-20,de
+34_DORA_Unterauftragnehmer.pdf,European Commission,delegated_regulation,Delegierte Verordnung (EU) 2025/532 Untervergabe von IKT-Dienstleistungen,2025-07-02,de
+35_BaFin_DORA_Artikel_16.pdf,BaFin,guidance,BaFin Aufsichtsmitteilung Hinweise zu Artikel 16 DORA,2025-08-21,de
+36_MaComp.pdf,BaFin,circular,MaComp Rundschreiben 05/2018 (WA),2024-02-28,de
+37_WpHG.pdf,Bundestag,law,Wertpapierhandelsgesetz (WpHG),2026-05-26,de
+38_MiFID_Organisation_2017_565.pdf,European Commission,delegated_regulation,Delegierte Verordnung (EU) 2017/565 MiFID II Organisationsanforderungen,2017-03-31,de
+39_MiFID_Produktgovernance_2017_593.pdf,European Commission,delegated_directive,"Delegierte Richtlinie (EU) 2017/593 Kundenschutz, Produktueberwachung und Zuwendungen",2017-03-31,de
+40_MAR_596_2014.pdf,EU,regulation,Verordnung (EU) Nr. 596/2014 Marktmissbrauchsverordnung (MAR),2014-06-12,de
+41_MAR_STOR_2016_957.pdf,European Commission,delegated_regulation,Delegierte Verordnung (EU) 2016/957 Meldung verdaechtiger Auftraege und Geschaefte (STOR),2016-06-17,de
+42_ESMA_Geeignetheit.pdf,ESMA,guideline,ESMA35-43-3172 Leitlinien MiFID II Geeignetheit,2023-04-03,de
+43_ESMA_Angemessenheit.pdf,ESMA,guideline,ESMA35-43-3006 Leitlinien MiFID II Angemessenheit und reines Ausfuehrungsgeschaeft,2022-04-12,de
+44_ESMA_Compliance_Funktion.pdf,ESMA,guideline,ESMA35-36-1952 Leitlinien MiFID II Compliance-Funktion,2021-04-06,de
+45_ESMA_Product_Governance.pdf,ESMA,guideline,ESMA35-43-3448 Leitlinien MiFID II Produktueberwachung,2023-08-03,de
+46_EBA_ESMA_Beschwerdebearbeitung.pdf,EBA/ESMA,guideline,JC 2018 35 Leitlinien zur Beschwerdeabwicklung,2018-10-04,de
+47_ZKG.pdf,Bundestag,law,Zahlungskontengesetz (ZKG),2026-04-09,de
+48_ZAG.pdf,Bundestag,law,Zahlungsdiensteaufsichtsgesetz (ZAG),2026-03-25,de
+49_BGB.pdf,Bundestag,law,Buergerliches Gesetzbuch (BGB),2026-07-23,de
+50_EU_Echtzeitueberweisungen.pdf,EU,regulation,Verordnung (EU) 2024/886 Echtzeitueberweisungen in Euro,2024-03-19,de
