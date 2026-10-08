@@ -50,4 +50,4 @@ markers = [
 ]
 
 [tool.setuptools.package-data]
-privrag = ["retrieve/*.json"]
+privrag = ["retrieve/*.json", "api/static/*.html"]

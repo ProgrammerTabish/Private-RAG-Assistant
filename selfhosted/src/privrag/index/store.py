@@ -2,7 +2,7 @@
 
 * point ids are uuid5(chunk_id) -> re-indexing is idempotent (upsert overwrites)
 * upserts are batched and retried; the final point count is verified
-* the embedder fingerprint is stored in ``index_meta.json``; querying with a
+* the embedder fingerprint is stored in ``index_meta.<mode>.<collection>.json``; querying with a
   different embedder than the one used for indexing is refused (it would
   silently return garbage otherwise)
 * modes: ``memory`` (tests), ``path`` (local file), ``server`` (Qdrant on Azure)
@@ -75,7 +75,8 @@ class VectorStore:
         self.s = s
         self.client = _client(s)
         self.collection = s.collection
-        self.meta_path: Path = s.data_dir / "index_meta.json"
+        # one metadata record per Qdrant target, so a server collection and a local one never overwrite each other
+        self.meta_path: Path = s.data_dir / f"index_meta.{s.qdrant_mode}.{s.collection}.json"
 
     # ---------------------------------------------------------------- schema
     def exists(self) -> bool:
@@ -188,5 +189,5 @@ class VectorStore:
 
     def read_meta(self) -> dict:
         if not self.meta_path.exists():
-            raise IndexError_("index_meta.json missing - run 'privrag index' first", code="INDEX_NOT_BUILT")
+            raise IndexError_(f"{self.meta_path.name} missing - run 'privrag index' first", code="INDEX_NOT_BUILT")
         return json.loads(self.meta_path.read_text(encoding="utf-8"))

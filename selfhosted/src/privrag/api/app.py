@@ -22,7 +22,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
 from .. import __version__
@@ -116,6 +116,12 @@ def create_app(settings: Settings | None = None, service: RagService | None = No
         if st.service is None:
             raise HTTPException(503, detail={"error": "service not ready", **(st.startup_error or {})})
         return st.service
+
+    @app.get("/", include_in_schema=False)
+    def ui():
+        """Minimal chat page (static, same origin as the API)."""
+        from importlib.resources import files
+        return HTMLResponse(files("privrag.api").joinpath("static/index.html").read_text(encoding="utf-8"))
 
     @app.get("/health")
     def health():

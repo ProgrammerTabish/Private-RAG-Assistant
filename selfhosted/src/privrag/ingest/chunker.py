@@ -11,6 +11,7 @@ over a page break reports "pp. 17-18".
 from __future__ import annotations
 
 import bisect
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 
@@ -25,6 +26,7 @@ from .sections import Heading, detect_heading
 log = get_logger("ingest.chunk")
 
 STRONG_KINDS = {"paragraph", "article", "circular"}
+_BARE_INT = re.compile(r"^\d{1,3}$")
 SEPARATORS = ["\n\n", "\n(", "\n", ". ", "; ", ", ", " ", ""]
 
 
@@ -68,6 +70,14 @@ def build_sections(parsed: ParsedDoc, header_footer_min_ratio: float, min_text_c
                    stats: ChunkStats | None = None) -> list[_Section]:
     stats = stats or ChunkStats()
     raw_pages = [(p.page, p.text.split("\n")) for p in parsed.pages]
+    # contents pages laid out as "3.2.2 / Title / 23" lines: many bare page numbers near the start
+    early = max(10, int(len(raw_pages) * 0.15))
+    raw_toc: set[int] = set()
+    for idx, (page, lines) in enumerate(raw_pages[:early]):
+        nonempty = [l.strip() for l in lines if l.strip()]
+        bare = sum(1 for l in nonempty if _BARE_INT.match(l))
+        if bare >= 8 and bare / max(len(nonempty), 1) >= 0.2:
+            raw_toc.add(page)
     boiler = find_boilerplate([lines for _, lines in raw_pages], header_footer_min_ratio)
     stats.boilerplate_lines = len(boiler)
     pages_lines: list[tuple[int, list[str]]] = []
@@ -94,6 +104,7 @@ def build_sections(parsed: ParsedDoc, header_footer_min_ratio: float, min_text_c
     for page, (n_lines, n_head) in per_page.items():
         if n_head >= 5 and n_head / n_lines >= 0.35:
             toc_pages.add(page)
+    toc_pages |= raw_toc
     stats.toc_pages = len(toc_pages)
 
     # text before the first heading of an EU act are the recitals

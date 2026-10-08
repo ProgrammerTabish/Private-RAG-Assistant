@@ -129,3 +129,9 @@ def test_request_logged_with_id(client, settings):
     client.post("/ask", json={"question": Q}, headers={"X-Request-ID": "trace-me"})
     lines = [l for l in (settings.log_dir / "latest.jsonl").read_text().splitlines() if "trace-me" in l]
     assert any("POST /ask -> 200" in l for l in lines) and any("answer ready" in l for l in lines)
+
+
+def test_chat_ui_served(client):
+    r = client.get("/")
+    assert r.status_code == 200 and "text/html" in r.headers["content-type"]
+    assert "Compliance Assistant" in r.text and 'fetch("/ask"' in r.text

@@ -25,6 +25,10 @@ param(
     [int]$MaxSourceChars = 1500,        # characters per source in the prompt (Azure: 1800)
     [int]$ContextTokens = 8192,         # Ollama context window for the LLM
     [switch]$SkipIndex,                 # reuse the existing index (data_ollama)
+    [switch]$NoEval,                    # build only (no 32-question evaluation)
+    [switch]$Serve,                     # start the API + chat UI at the end and open the browser
+    [int]$Port = 8000,
+    [string]$QdrantVersion = "v1.19.2",
     [string]$OllamaUrl = "http://127.0.0.1:11434"
 )
 
@@ -131,6 +135,47 @@ try {
         Write-Host ("/v1/chat/completions OK: '{0}' in {1:N1} s (includes model load)" -f $r.choices[0].message.content.Trim(), $sw.Elapsed.TotalSeconds)
     }
 
+    # ------------------------------------------------------------------ 3b qdrant server (as on Azure)
+    Step "3b/7 Qdrant vector database server ($QdrantVersion, localhost only)"
+    $QdrantUrl = "http://127.0.0.1:6333"
+    $qUp = $false
+    try { Invoke-RestMethod "$QdrantUrl/readyz" -TimeoutSec 3 | Out-Null; $qUp = $true } catch {}
+    if ($qUp) {
+        Write-Host "Qdrant already running at $QdrantUrl"
+    } else {
+        $qDir = Join-Path $SelfHosted "tools\qdrant-$QdrantVersion"
+        $qExe = Join-Path $qDir "qdrant.exe"
+        if (-not (Test-Path $qExe)) {
+            New-Item -ItemType Directory -Force -Path $qDir | Out-Null
+            $zip = Join-Path $qDir "qdrant.zip"
+            $url = "https://github.com/qdrant/qdrant/releases/download/$QdrantVersion/qdrant-x86_64-pc-windows-msvc.zip"
+            Write-Host "Downloading $url"
+            $ProgressPreference = "SilentlyContinue"
+            Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+            Expand-Archive -Path $zip -DestinationPath $qDir -Force
+            Remove-Item $zip
+            if (-not (Test-Path $qExe)) { $found = Get-ChildItem $qDir -Recurse -Filter qdrant.exe | Select-Object -First 1; if ($found) { $qExe = $found.FullName } }
+            if (-not (Test-Path $qExe)) { Fail "qdrant.exe not found after download" }
+        }
+        $qData = Join-Path $SelfHosted "data_ollama\qdrant_server"
+        New-Item -ItemType Directory -Force -Path $qData | Out-Null
+        $env:QDRANT__SERVICE__HOST = "127.0.0.1"          # no network exposure, no firewall prompt
+        $env:QDRANT__SERVICE__HTTP_PORT = "6333"
+        $env:QDRANT__SERVICE__GRPC_PORT = "6334"
+        $env:QDRANT__STORAGE__STORAGE_PATH = Join-Path $qData "storage"
+        $env:QDRANT__STORAGE__SNAPSHOTS_PATH = Join-Path $qData "snapshots"
+        $env:QDRANT__TELEMETRY_DISABLED = "true"
+        $qLog = Join-Path $SelfHosted "logs\qdrant-$Stamp.log"
+        Start-Process -FilePath $qExe -WorkingDirectory $qData -WindowStyle Hidden -RedirectStandardOutput $qLog -RedirectStandardError "$qLog.err"
+        for ($i = 0; $i -lt 30 -and -not $qUp; $i++) {
+            Start-Sleep -Seconds 1
+            try { Invoke-RestMethod "$QdrantUrl/readyz" -TimeoutSec 3 | Out-Null; $qUp = $true } catch {}
+        }
+        if (-not $qUp) { Fail "Qdrant did not start - see $qLog.err" }
+        Write-Host "Qdrant started at $QdrantUrl (data: $qData)"
+    }
+    $Info.qdrant = $QdrantVersion
+
     # ------------------------------------------------------------------ 4 python env
     Step "4/7 Python environment (.venv-win)"
     $Py = if ($IsLinux -or $IsMacOS) { Join-Path $SelfHosted ".venv-win/bin/python" } else { Join-Path $SelfHosted ".venv-win\Scripts\python.exe" }
@@ -166,7 +211,8 @@ try {
     $env:PRIVRAG_EMBED_MODEL = "bge-m3"
     $env:PRIVRAG_EMBED_BATCH_SIZE = "16"
     $env:PRIVRAG_EMBED_TIMEOUT_S = "600"
-    $env:PRIVRAG_QDRANT_MODE = "path"
+    $env:PRIVRAG_QDRANT_MODE = "server"
+    $env:PRIVRAG_QDRANT_URL = $QdrantUrl
     $env:PRIVRAG_RERANK_BACKEND = "none"
     $env:PRIVRAG_TOP_K = "$TopK"
     $env:PRIVRAG_MAX_SOURCE_CHARS = "$MaxSourceChars"
@@ -192,12 +238,16 @@ try {
     if (-not $SkipIndex) { Invoke-Native "index" { & $Py -m privrag.cli index } }
 
     # ------------------------------------------------------------------ 7 eval
-    $n = if ($Limit -gt 0) { $Limit } else { "all 32" }
-    Step "7/7 Evaluation ($n questions, LLM: $LlmModel)"
-    if ($Limit -gt 0) {
-        Invoke-Native "eval" { & $Py -m privrag.cli eval --limit $Limit }
+    if ($NoEval) {
+        Step "7/7 Evaluation skipped (-NoEval)"
     } else {
-        Invoke-Native "eval" { & $Py -m privrag.cli eval }
+        $n = if ($Limit -gt 0) { $Limit } else { "all 32" }
+        Step "7/7 Evaluation ($n questions, LLM: $LlmModel)"
+        if ($Limit -gt 0) {
+            Invoke-Native "eval" { & $Py -m privrag.cli eval --limit $Limit }
+        } else {
+            Invoke-Native "eval" { & $Py -m privrag.cli eval }
+        }
     }
 
     $Info.total_minutes = [math]::Round($Total.Elapsed.TotalMinutes, 1)
@@ -206,7 +256,23 @@ try {
     $Info | ConvertTo-Json -Depth 5 | Set-Content -Path $infoPath -Encoding utf8
     Write-Host ""
     Write-Host ("DONE in {0:N1} min. Results: {1}" -f $Total.Elapsed.TotalMinutes, (Join-Path $SelfHosted "data_ollama\reports")) -ForegroundColor Green
-    Write-Host "Tell Claude it has finished - the report is written from these files." -ForegroundColor Green
+    if (-not $Serve) {
+        Write-Host "Tell Claude it has finished - the report is written from these files." -ForegroundColor Green
+    } else {
+        Step "Chat UI on http://127.0.0.1:$Port  (Ctrl+C in this window stops it)"
+        $api = Start-Process -FilePath $Py -ArgumentList @("-m", "privrag.cli", "serve", "--host", "127.0.0.1", "--port", "$Port") `
+            -NoNewWindow -PassThru
+        $ok = $false
+        for ($i = 0; $i -lt 120 -and -not $ok; $i++) {
+            Start-Sleep -Seconds 1
+            try { $h = Invoke-RestMethod "http://127.0.0.1:$Port/health" -TimeoutSec 3; $ok = ($h.status -eq "ok") } catch {}
+            if ($api.HasExited) { Fail "API process exited (code $($api.ExitCode))" }
+        }
+        if (-not $ok) { Fail "API did not become healthy on port $Port" }
+        Write-Host ("Ready: {0} chunks indexed, LLM {1}" -f $h.index_points, $h.llm_model) -ForegroundColor Green
+        try { Start-Process "http://127.0.0.1:$Port" } catch { Write-Host "Open http://127.0.0.1:$Port in your browser" }
+        $api.WaitForExit()
+    }
 }
 catch {
     Fail ($_ | Out-String)

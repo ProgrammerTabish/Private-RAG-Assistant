@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compliance Assistant</title>
+<style>
+  :root { --bg:#fbfbf9; --fg:#1d1d1b; --muted:#6f6e69; --line:#e4e2dc; --card:#ffffff; --accent:#2f5d50; --warn:#9a5b13; --err:#a32d2d; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#171716; --fg:#ecebe6; --muted:#a3a19a; --line:#33322f; --card:#1f1f1d; --accent:#8cc5b0; --warn:#e0a85a; --err:#f09595; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:24px 16px 140px; }
+  header { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:24px; }
+  h1 { font-size:17px; font-weight:600; margin:0; }
+  .meta { font-size:12px; color:var(--muted); text-align:right; }
+  .q { margin:28px 0 8px; font-weight:600; }
+  .a { white-space:pre-wrap; }
+  .a sup a { color:var(--accent); text-decoration:none; font-size:11px; padding:0 1px; }
+  .info { margin-top:8px; font-size:12px; color:var(--muted); display:flex; flex-wrap:wrap; gap:10px; }
+  .pill { border:1px solid var(--line); border-radius:999px; padding:0 8px; }
+  .high { color:var(--accent); } .medium { color:var(--warn); } .low, .error { color:var(--err); }
+  ol.src { margin:10px 0 0; padding-left:20px; font-size:13px; }
+  ol.src li { margin:6px 0; }
+  ol.src li:target { background:color-mix(in srgb, var(--accent) 12%, transparent); border-radius:4px; }
+  .file { font-weight:600; } .sec, .quote { color:var(--muted); } .quote { display:block; font-style:italic; }
+  .warn { font-size:12px; color:var(--warn); margin-top:6px; }
+  .thinking { color:var(--muted); font-size:13px; }
+  form { position:fixed; left:0; right:0; bottom:0; background:var(--bg); border-top:1px solid var(--line); padding:14px 16px 18px; }
+  .row { max-width:760px; margin:0 auto; display:flex; gap:8px; }
+  textarea { flex:1; resize:none; height:52px; padding:10px 12px; font:inherit; color:var(--fg); background:var(--card); border:1px solid var(--line); border-radius:10px; }
+  textarea:focus { outline:2px solid var(--accent); outline-offset:-1px; }
+  button { padding:0 18px; font:inherit; color:#fff; background:var(--accent); border:0; border-radius:10px; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  .hint { max-width:760px; margin:6px auto 0; font-size:11px; color:var(--muted); }
+  .empty { color:var(--muted); font-size:14px; }
+  .empty button { color:var(--fg); background:var(--card); border:1px solid var(--line); padding:6px 10px; margin:4px 4px 0 0; font-size:13px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Compliance Assistant</h1>
+    <div class="meta" id="meta">self-hosted · loading…</div>
+  </header>
+  <div id="log">
+    <div class="empty" id="empty">Ask about GwG, KWG, MaRisk, DORA, DSGVO, sanctions, WpHG or the BGB. Answers cite the source documents.
+      <div>
+        <button type="button" class="ex">Within what deadline must a major ICT-related incident be reported under DORA?</button>
+        <button type="button" class="ex">Wann muss eine Bank nach dem GwG allgemeine Sorgfaltspflichten erfüllen?</button>
+        <button type="button" class="ex">What are the tasks of the compliance function under MaRisk?</button>
+      </div>
+    </div>
+  </div>
+</main>
+<form id="f">
+  <div class="row">
+    <textarea id="q" placeholder="Ask a question…  (Enter to send, Shift+Enter for a new line)" maxlength="2000" aria-label="Question"></textarea>
+    <button id="send" type="submit">Ask</button>
+  </div>
+  <div class="hint">Runs entirely on this machine: documents, embeddings, model and answers stay local.</div>
+</form>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let n = 0;
+
+fetch("/health").then(r => r.json()).then(h => {
+  $("meta").textContent = `self-hosted · ${h.llm_model} · ${h.embed_backend === "remote" ? "BGE-M3" : h.embed_backend} · ${h.index_points ?? "?"} chunks`;
+}).catch(() => { $("meta").textContent = "self-hosted · backend not reachable"; });
+
+function renderAnswer(box, a, id) {
+  const cites = new Map(a.citations.map(c => [c.n, c]));
+  const text = esc(a.answer).replace(/\[(\d{1,2})\]/g, (m, k) =>
+    cites.has(+k) ? `<sup><a href="#s${id}-${k}" title="${esc(cites.get(+k).file)}">[${k}]</a></sup>` : m);
+  const conf = a.status === "answered" ? `<span class="pill ${a.confidence_label}">confidence ${a.confidence_label} (${Math.round(a.confidence * 100)}%)</span>`
+                                      : `<span class="pill ${a.status === "error" ? "error" : "medium"}">${esc(a.status.replace("_", " "))}</span>`;
+  const secs = ((a.latency_ms?.total ?? 0) / 1000).toFixed(1);
+  const src = a.citations.map(c => `<li id="s${id}-${c.n}"><span class="file">${esc(c.file)}</span>
+      <span class="sec"> · ${esc(c.section || "no section")} · p. ${c.page_start}${c.page_end !== c.page_start ? "–" + c.page_end : ""}</span>
+      <span class="quote">“${esc(c.quote)}”</span></li>`).join("");
+  const warn = (a.warnings || []).filter(w => !w.startsWith("query rewrite")).map(w => `<div class="warn">${esc(w)}</div>`).join("");
+  box.innerHTML = `<div class="a">${text}</div>
+    <div class="info">${conf}<span>${a.citations.length} source${a.citations.length === 1 ? "" : "s"}</span><span>${secs} s</span><span>id ${esc(a.request_id)}</span></div>
+    ${src ? `<ol class="src">${src}</ol>` : ""}${warn}`;
+}
+
+async function ask(question) {
+  $("empty")?.remove();
+  const id = ++n;
+  const q = document.createElement("div"); q.className = "q"; q.textContent = question;
+  const box = document.createElement("div"); box.innerHTML = `<span class="thinking">Searching the documents and writing an answer… <span id="t${id}">0</span> s</span>`;
+  $("log").append(q, box);
+  q.scrollIntoView({ behavior: "smooth" });
+  $("send").disabled = true;
+  const t0 = Date.now();
+  const timer = setInterval(() => { const el = $("t" + id); if (el) el.textContent = Math.round((Date.now() - t0) / 1000); }, 1000);
+  try {
+    const r = await fetch("/ask", { method: "POST", headers: { "Content-Type": "application/json" },
+                                   body: JSON.stringify({ question, user: "local-ui" }) });
+    const body = await r.json().catch(() => ({}));
+    if (body && body.answer !== undefined) renderAnswer(box, body, id);
+    else box.innerHTML = `<div class="warn">Request failed (HTTP ${r.status}): ${esc(JSON.stringify(body.detail ?? body))}</div>`;
+  } catch (e) {
+    box.innerHTML = `<div class="warn">Backend not reachable: ${esc(e.message)}</div>`;
+  } finally {
+    clearInterval(timer);
+    $("send").disabled = false;
+    $("q").focus();
+  }
+}
+
+$("f").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const v = $("q").value.trim();
+  if (!v || $("send").disabled) return;
+  $("q").value = "";
+  ask(v);
+});
+$("q").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("f").requestSubmit(); }
+});
+document.querySelectorAll(".ex").forEach(b => b.addEventListener("click", () => ask(b.textContent)));
+$("q").focus();
+</script>
+</body>
+</html>
