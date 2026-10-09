@@ -30,6 +30,7 @@ param(
     [switch]$Improve,                   # on later starts: spend another -EmbedMinutes on more BGE-M3 coverage
     [switch]$Full,                      # no time budget: embed everything (hours on a laptop CPU)
     [string[]]$Docs = @(),              # only these documents, e.g. -Docs 01_GwG (demo); empty = all 50
+    [string]$EvalFile = "",             # question set (.xlsx, sheet "Question set"); default: UC13 set
     [int]$EmbedThreads = 0,             # CPU threads for BGE-M3 (0 = all logical processors)
     [switch]$SkipIndex,                 # reuse the existing index (data_ollama)
     [switch]$NoEval,                    # build only (no 32-question evaluation)
@@ -236,6 +237,12 @@ try {
     $env:PRIVRAG_QDRANT_URL = $QdrantUrl
     $env:PRIVRAG_RERANK_BACKEND = "none"
     $env:PRIVRAG_TOP_K = "$TopK"
+    if ($EvalFile) {
+        $ef = if ([IO.Path]::IsPathRooted($EvalFile)) { $EvalFile } else { Join-Path (Get-Location) $EvalFile }
+        if (-not (Test-Path $ef)) { $ef = Join-Path (Split-Path -Parent $SelfHosted) $EvalFile }
+        if (-not (Test-Path $ef)) { Fail "EvalFile not found: $EvalFile" }
+        $env:PRIVRAG_EVAL_PATH = (Resolve-Path $ef).Path
+    } else { Remove-Item env:PRIVRAG_EVAL_PATH -ErrorAction SilentlyContinue }
     $env:PRIVRAG_QUERY_REWRITE = if ($QueryRewrite) { "true" } else { "false" }
     # Time budget for BGE-M3: first build -EmbedMinutes, later starts 0 (instant) unless -Improve; -Full = no limit
     $metaFile = Join-Path $SelfHosted "data_ollama\index_meta.server.spg_compliance.json"
