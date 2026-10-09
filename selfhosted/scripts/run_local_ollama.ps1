@@ -29,6 +29,7 @@ param(
     [int]$EmbedMinutes = 5,             # BGE-M3 time budget per index run; all chunks always get keyword search
     [switch]$Improve,                   # on later starts: spend another -EmbedMinutes on more BGE-M3 coverage
     [switch]$Full,                      # no time budget: embed everything (hours on a laptop CPU)
+    [string[]]$Docs = @(),              # only these documents, e.g. -Docs 01_GwG (demo); empty = all 50
     [int]$EmbedThreads = 0,             # CPU threads for BGE-M3 (0 = all logical processors)
     [switch]$SkipIndex,                 # reuse the existing index (data_ollama)
     [switch]$NoEval,                    # build only (no 32-question evaluation)
@@ -238,7 +239,10 @@ try {
     $env:PRIVRAG_QUERY_REWRITE = if ($QueryRewrite) { "true" } else { "false" }
     # Time budget for BGE-M3: first build -EmbedMinutes, later starts 0 (instant) unless -Improve; -Full = no limit
     $metaFile = Join-Path $SelfHosted "data_ollama\index_meta.server.spg_compliance.json"
-    if ($Full) {
+    if ($Docs.Count -gt 0) {
+        Remove-Item env:PRIVRAG_INDEX_TIME_BUDGET_S -ErrorAction SilentlyContinue
+        $budgetTxt = "no limit - only $($Docs -join ', ')"
+    } elseif ($Full) {
         Remove-Item env:PRIVRAG_INDEX_TIME_BUDGET_S -ErrorAction SilentlyContinue
         $budgetTxt = "no limit (-Full)"
     } elseif ((Test-Path $metaFile) -and -not $Improve) {
@@ -270,7 +274,12 @@ try {
     Write-Host "as fit in the budget, spread over all 50 documents. Progress is printed every ~15 s."
     Write-Host "More coverage later: run again with -Improve (adds $EmbedMinutes min) or -Full (everything, hours)."
     Invoke-Native "doctor" { & $Py -m privrag.cli doctor --before-build }
-    Invoke-Native "ingest" { & $Py -m privrag.cli ingest }
+    if ($Docs.Count -gt 0) {
+        $onlyArgs = @(); foreach ($d in $Docs) { $onlyArgs += @("--only", $d) }
+        Invoke-Native "ingest" { & $Py -m privrag.cli ingest @onlyArgs }
+    } else {
+        Invoke-Native "ingest" { & $Py -m privrag.cli ingest }
+    }
     if (-not $SkipIndex) { Invoke-Native "index" { & $Py -m privrag.cli index } }
 
     # ------------------------------------------------------------------ 7 eval

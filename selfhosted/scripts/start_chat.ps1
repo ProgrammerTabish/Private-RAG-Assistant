@@ -2,13 +2,16 @@
 .SYNOPSIS
   Start the local self-hosted RAG chat (Ollama BGE-M3 + 3B LLM, Qdrant server, FastAPI + UI)
   and open it in the browser.
-  First start: about 10 minutes (keyword index for all chunks + 5 min of BGE-M3 vectors).
-  Later starts: about 1-2 minutes. Add -Improve to spend another 5 min on BGE-M3 coverage.
+  Default = small DEMO with one law (24_HinSchG.pdf, 68 chunks, ~3-5 min first start on a laptop CPU).
+  -AllDocs = all 50 documents (keyword search for all + 5 min BGE-M3 budget per run, -Improve adds more).
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File selfhosted\scripts\start_chat.ps1
-  powershell -ExecutionPolicy Bypass -File selfhosted\scripts\start_chat.ps1 -Improve
-  powershell -ExecutionPolicy Bypass -File selfhosted\scripts\start_chat.ps1 -Improve -EmbedMinutes 30
+  powershell -ExecutionPolicy Bypass -File selfhosted\scripts\start_chat.ps1 -Docs 01_GwG    (bigger: 318 chunks, ~12 min)
+  powershell -ExecutionPolicy Bypass -File selfhosted\scripts\start_chat.ps1 -AllDocs -Improve
 #>
-param([string]$LlmModel = "auto", [int]$Port = 8000, [int]$EmbedMinutes = 5, [switch]$Improve, [switch]$Full)
+param([string]$LlmModel = "auto", [int]$Port = 8000, [string[]]$Docs = @("24_HinSchG"), [switch]$AllDocs,
+      [int]$EmbedMinutes = 5, [switch]$Improve, [switch]$Full,
+      [string]$OllamaUrl = "http://127.0.0.1:11434")
+if ($AllDocs) { $Docs = @() }
 & (Join-Path $PSScriptRoot "run_local_ollama.ps1") -NoEval -Serve -LlmModel $LlmModel -Port $Port `
-    -EmbedMinutes $EmbedMinutes -Improve:$Improve -Full:$Full
+    -Docs $Docs -EmbedMinutes $EmbedMinutes -Improve:$Improve -Full:$Full -OllamaUrl $OllamaUrl

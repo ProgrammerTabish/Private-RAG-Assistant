@@ -339,3 +339,13 @@ def test_spread_order_round_robin():
     first = [chunks[i].chunk_id for i in order[:4]]
     assert first == ["A:0", "B:0", "A:4", "B:1"]              # round robin, A jumps to its middle
     assert sorted(order) == list(range(10))
+
+
+def test_budget_progress_shows_budget_not_full_eta(settings):
+    import time as _t
+    from privrag.embed.base import Progress
+    p = Progress(total=12186, every_s=0, label="BGE-M3 vectors", deadline=_t.perf_counter() + 200)
+    _t.sleep(0.01)
+    p.advance(8)
+    log = (settings.log_dir / "latest.jsonl").read_text(encoding="utf-8")
+    assert "BGE-M3 vectors 8/12186" in log and "time budget: 3m" in log and "h" not in log.split("time budget:")[1][:6]

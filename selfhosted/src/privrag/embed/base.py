@@ -240,7 +240,9 @@ class Progress:
     Logs the first batch, then at least every ``every_s`` seconds or every 5 %, and at 100 %,
     so a slow CPU endpoint never looks hung."""
 
-    def __init__(self, total: int, already_done: int = 0, every_s: float = 15.0, label: str = "embedding progress"):
+    def __init__(self, total: int, already_done: int = 0, every_s: float = 15.0, label: str = "embedding progress",
+                 deadline: float | None = None):
+        self.deadline = deadline            # perf_counter() value when a time budget ends
         self.total = max(total, 1)
         self.base = already_done            # done before this run (resumed) - not counted in the rate
         self.done = already_done
@@ -261,7 +263,11 @@ class Progress:
         new = self.done - self.base
         rate = new / el if el > 0 and new > 0 else 0.0
         eta = round((self.total - self.done) / rate) if rate else None
-        eta_txt = f", ~{eta // 3600}h{(eta % 3600) // 60:02d}m left" if eta is not None and eta >= 60 else ""
+        if self.deadline is not None:
+            left = max(0, int(self.deadline - now))
+            eta_txt = f" - time budget: {left // 60}m{left % 60:02d}s left, then the index is ready"
+        else:
+            eta_txt = f", ~{eta // 3600}h{(eta % 3600) // 60:02d}m left" if eta is not None and eta >= 60 else ""
         log.info(f"{self.label} {self.done}/{self.total} ({pct:.0f}%){eta_txt}",
                  extra={"count": self.done, "rate_per_s": round(rate, 2), "eta_s": eta})
         self._last_t, self._last_pct = now, pct
