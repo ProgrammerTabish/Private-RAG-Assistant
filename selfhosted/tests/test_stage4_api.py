@@ -131,7 +131,6 @@ def test_request_logged_with_id(client, settings):
     assert any("POST /ask -> 200" in l for l in lines) and any("answer ready" in l for l in lines)
 
 
-def test_chat_ui_served(client):
-    r = client.get("/")
-    assert r.status_code == 200 and "text/html" in r.headers["content-type"]
-    assert "Compliance Assistant" in r.text and 'fetch("/ask"' in r.text
+def test_root_points_to_api(client):
+    r = client.get("/").json()
+    assert r["docs"] == "/docs" and r["ask"] == "POST /ask"

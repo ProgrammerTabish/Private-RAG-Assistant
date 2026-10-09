@@ -1,0 +1,13 @@
+**/.git
+**/.venv*
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/*.egg-info
+selfhosted/data*
+selfhosted/logs
+selfhosted/tools
+selfhosted/tests
+_model_transfer
+*.cmd
+.env
