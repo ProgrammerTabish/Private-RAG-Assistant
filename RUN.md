@@ -64,10 +64,12 @@ Needs: Linux x86_64, `curl` or `wget`, `tar`, NVIDIA driver (`nvidia-smi`), inte
 Same steps as `install_run_rag.sh`, as one double-clickable program (no admin rights, no Docker):
 restores `rag_db/` into `db_data\`, installs uv + Python 3.11 + packages into `.runtime\`
 (CUDA PyTorch if `nvidia-smi` finds a GPU, otherwise CPU), installs Ollama into `.runtime\ollama`
-(or reuses a running/installed one), pulls `mistral-small3.1:24b`, starts the API and prints:
+(or reuses a running/installed one), pulls `mistral-small3.1:24b`, starts the API, **opens the chat UI in
+the browser** and prints:
 
 ```
- This PC:   http://127.0.0.1:8000/ask
+ Chat UI:   http://127.0.0.1:8000/
+ API:       http://127.0.0.1:8000/ask
  Network:   http://192.168.x.y:8000/ask
  API key:   <generated once, saved in .runtime\api_key.txt>
 ```
@@ -80,3 +82,11 @@ Options (run from a terminal): `install_run_rag.exe --api-key hello123 --host 12
 --model mistral:7b`. Close the window or press Ctrl+C to stop API and Ollama.
 Source: `launcher/main.go` (Go, stdlib only). Rebuild:
 `cd launcher && GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o ../install_run_rag.exe .`
+
+## Chat UI
+
+The API serves a Copilot-style chat page at `http://<host>:8000/` (also `/ui`): conversation history
+(stored in the browser), clickable `[n]` citations with file / section / page and the full source text,
+confidence and status badges, a document filter, light/dark mode. No external scripts or fonts - nothing
+leaves the server. If an API key is set, enter it once via "API key" in the sidebar (the Windows launcher
+passes it automatically).

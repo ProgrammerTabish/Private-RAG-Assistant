@@ -19,10 +19,11 @@ import threading
 import time
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
 from .. import __version__
@@ -117,9 +118,21 @@ def create_app(settings: Settings | None = None, service: RagService | None = No
             raise HTTPException(503, detail={"error": "service not ready", **(st.startup_error or {})})
         return st.service
 
+    ui_file = Path(__file__).parent / "static" / "index.html"
+
     @app.get("/", include_in_schema=False)
-    def root():
-        return {"service": "privrag self-hosted RAG API", "docs": "/docs", "health": "/health", "ask": "POST /ask"}
+    def root(request: Request):
+        # browsers get the chat UI, API clients the service description
+        if "text/html" in request.headers.get("accept", "") and ui_file.exists():
+            return HTMLResponse(ui_file.read_text(encoding="utf-8"))
+        return {"service": "privrag self-hosted RAG API", "ui": "/ui", "docs": "/docs", "health": "/health",
+                "ask": "POST /ask"}
+
+    @app.get("/ui", include_in_schema=False)
+    def ui():
+        if not ui_file.exists():
+            raise HTTPException(404, "UI not installed")
+        return HTMLResponse(ui_file.read_text(encoding="utf-8"))
 
     @app.get("/health")
     def health():

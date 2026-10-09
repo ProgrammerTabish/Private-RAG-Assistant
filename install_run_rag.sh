@@ -191,6 +191,7 @@ log "checking index + LLM endpoint ..."
 "$PRIVRAG" doctor || die "privrag doctor failed - see output above"
 
 log "RAG assistant running: http://$API_HOST:$API_PORT  (Ctrl+C to stop)"
+log "  chat UI: open http://$API_HOST:$API_PORT/ in a browser (enter the API key via the sidebar if one is set)"
 log "  try: curl -X POST http://127.0.0.1:$API_PORT/ask -H 'Content-Type: application/json' \\"
 log "         -d '{\"question\": \"Innerhalb welcher Frist muss die interne Meldestelle den Eingang einer Meldung bestätigen?\"}'"
 "$PRIVRAG" serve --host "$API_HOST" --port "$API_PORT" &

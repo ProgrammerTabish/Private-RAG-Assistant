@@ -44,6 +44,7 @@ var (
 	flagOllamaPort = flag.String("ollama-port", envOr("OLLAMA_PORT", "11434"), "Ollama port (local only)")
 	flagCtx        = flag.String("context", envOr("OLLAMA_CONTEXT_LENGTH", "16384"), "Ollama context length")
 	flagNoPause    = flag.Bool("no-pause", false, "do not wait for Enter before closing the window")
+	flagNoBrowser  = flag.Bool("no-browser", false, "do not open the chat UI in the browser")
 )
 
 var (
@@ -577,6 +578,9 @@ func runAPI(python, privrag, ollamaURL, key string, gpu bool) {
 			if r, err := c.Get("http://127.0.0.1:" + *flagPort + "/health"); err == nil {
 				r.Body.Close()
 				banner(key)
+				if !*flagNoBrowser {
+					openBrowser(fmt.Sprintf("http://127.0.0.1:%s/#key=%s", *flagPort, key))
+				}
 				return
 			}
 			time.Sleep(2 * time.Second)
@@ -595,10 +599,11 @@ func banner(key string) {
 	fmt.Println("\n" + line)
 	fmt.Println(" RAG assistant is running   (close this window or press Ctrl+C to stop)")
 	fmt.Println(line)
-	fmt.Printf(" This PC:        http://127.0.0.1:%s/ask\n", *flagPort)
+	fmt.Printf(" Chat UI:        http://127.0.0.1:%s/   (opens automatically)\n", *flagPort)
+	fmt.Printf(" API (this PC):  http://127.0.0.1:%s/ask\n", *flagPort)
 	if *flagHost == "0.0.0.0" {
 		for _, ip := range localIPs() {
-			fmt.Printf(" Network:        http://%s:%s/ask\n", ip, *flagPort)
+			fmt.Printf(" Network:        http://%s:%s/   (UI)   http://%s:%s/ask   (API)\n", ip, *flagPort, ip, *flagPort)
 		}
 	} else if *flagHost != "127.0.0.1" {
 		fmt.Printf(" Network:        http://%s:%s/ask\n", *flagHost, *flagPort)
@@ -622,4 +627,20 @@ func stopChildren() {
 		}
 	}
 	children = nil
+}
+
+// openBrowser opens the chat UI; the API key travels in the URL fragment, which is never sent to the server.
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	if err := cmd.Start(); err != nil {
+		logf("could not open the browser (%v) - open http://127.0.0.1:%s/ yourself", err, *flagPort)
+	}
 }
