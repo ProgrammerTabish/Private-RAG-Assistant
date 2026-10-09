@@ -241,7 +241,7 @@ def test_index_resumes_after_interruption(remote_settings):
     assert r["mode"] == "resume" and r["points"] == total
     assert state["emb"].seen == total - 64                    # only the missing chunks were embedded
     log = (settings.log_dir / "latest.jsonl").read_text(encoding="utf-8")
-    assert "index plan: resume - 64 chunks already indexed" in log and "embedding progress" in log
+    assert "index plan: resume - 64 chunks already have dense vectors" in log and "embedding progress" in log
 
 
 def test_index_incremental_embeds_only_new_chunks(remote_settings, corpus):
@@ -274,3 +274,68 @@ def test_progress_reporter_logs_eta(settings):
     p.advance(100)
     log = (settings.log_dir / "latest.jsonl").read_text(encoding="utf-8")
     assert "embedding progress 300/1000 (30%)" in log and '"eta_s"' in log
+
+
+# ---------------------------------------------------------------- time-budgeted (laptop) indexing
+def test_budget_mode_keyword_points_for_all_and_partial_dense(remote_settings, monkeypatch):
+    import privrag.index.pipeline as pl
+    settings, state = remote_settings
+    total = _many_chunks(settings, n=200)
+
+    class Slow(CountingEmbedder):
+        def embed_documents(self, texts):
+            import time as _t
+            _t.sleep(0.01 * len(texts))
+            return super().embed_documents(texts)
+
+    state["emb"] = Slow()
+    settings.index_time_budget_s = 0.6
+    r = pl.run_index(settings)
+    assert r["points"] == total                               # every chunk is keyword-searchable
+    assert 0 < r["dense_points"] < total                      # dense only for part of it
+    store = VectorStore(settings)
+    pts = store.existing_points()
+    dense_docs = {cid.split(":")[0] for cid, has in pts.items() if has}
+    assert dense_docs == {"01_Test_GwG", "02_Test_DORA"}      # spread over all documents
+    # keyword search finds a chunk that has no dense vector
+    no_dense = [cid for cid, has in pts.items() if not has]
+    assert no_dense
+    # a second run continues the dense coverage
+    r2 = pl.run_index(settings)
+    assert r2["dense_points"] > r["dense_points"]
+    # unlimited run completes it; then the index is up to date
+    settings.index_time_budget_s = None
+    r3 = pl.run_index(settings)
+    assert r3["dense_points"] == total
+    assert pl.run_index(settings)["status"] == "up_to_date"
+
+
+def test_budget_zero_is_quick_start(remote_settings):
+    import privrag.index.pipeline as pl
+    settings, state = remote_settings
+    settings.index_time_budget_s = 0
+    r = pl.run_index(settings)
+    assert r["dense_points"] == 0 and r["points"] > 0
+    assert pl.run_index(settings)["status"] == "up_to_date"   # budget 0: no endless re-runs
+
+
+def test_retrieval_works_with_partial_dense(remote_settings):
+    import privrag.index.pipeline as pl
+    from privrag.retrieve.retriever import Retriever
+    settings, state = remote_settings
+    settings.index_time_budget_s = 0
+    pl.run_index(settings)
+    res, dbg = Retriever(settings, embedder=state["emb"]).retrieve("Meldepflicht Zentralstelle Finanztransaktionsuntersuchungen")
+    assert res and any(r.chunk.section and r.chunk.section.startswith("§ 43") for r in res)
+
+
+def test_spread_order_round_robin():
+    from privrag.index.pipeline import spread_order
+    from privrag.models import Chunk
+    mk = lambda d, s: Chunk(chunk_id=f"{d}:{s}", doc_id=d, file=f"{d}.pdf", title=d, section=None, page_start=1,
+                            page_end=1, seq=s, text="x" * 50, char_len=50, regulator="r", doc_type="t", language="de")
+    chunks = [mk("A", i) for i in range(8)] + [mk("B", i) for i in range(2)]
+    order = spread_order(chunks, list(range(10)))
+    first = [chunks[i].chunk_id for i in order[:4]]
+    assert first == ["A:0", "B:0", "A:4", "B:1"]              # round robin, A jumps to its middle
+    assert sorted(order) == list(range(10))

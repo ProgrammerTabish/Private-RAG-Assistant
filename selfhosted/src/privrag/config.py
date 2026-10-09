@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     embed_url: str | None = None  # OpenAI-compatible /v1/embeddings (TEI or vLLM)
     embed_batch_size: int = Field(32, ge=1)
     embed_timeout_s: float = Field(120.0, gt=0, description="per embedding request (CPU servers need more)")
+    index_time_budget_s: float | None = Field(
+        None, ge=0, description="limit dense embedding time per index run; all chunks still get BM25. "
+                                "Remaining chunks get dense vectors on later runs. None = embed everything")
 
     # ---- vector store ----------------------------------------------------
     qdrant_mode: Literal["memory", "path", "server"] = "path"

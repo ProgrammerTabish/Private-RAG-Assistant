@@ -131,6 +131,9 @@ def create_app(settings: Settings | None = None, service: RagService | None = No
         if st.service:
             try:
                 info["index_points"] = st.service.retriever.store.count()
+                meta = st.service.retriever.store.read_meta()
+                info["dense_points"] = meta.get("dense_points", info["index_points"])
+                info["dense_coverage"] = meta.get("dense_coverage", 1.0)
             except Exception as exc:
                 info["index_error"] = str(exc)
         if st.startup_error:

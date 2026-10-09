@@ -65,7 +65,11 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&
 let n = 0;
 
 fetch("/health").then(r => r.json()).then(h => {
-  $("meta").textContent = `self-hosted · ${h.llm_model} · ${h.embed_backend === "remote" ? "BGE-M3" : h.embed_backend} · ${h.index_points ?? "?"} chunks`;
+  const cov = h.dense_coverage ?? 1;
+  const emb = h.embed_backend === "remote" ? "BGE-M3" : h.embed_backend;
+  const dense = cov >= 0.999 ? `${emb} + keyword` : `keyword · ${emb} on ${(cov * 100).toFixed(cov < 0.1 ? 1 : 0)}%`;
+  $("meta").textContent = `self-hosted · ${h.llm_model} · ${h.index_points ?? "?"} chunks · ${dense}`;
+  $("meta").title = `${h.dense_points ?? "?"} of ${h.index_points ?? "?"} chunks have BGE-M3 vectors; all are keyword-searchable`;
 }).catch(() => { $("meta").textContent = "self-hosted · backend not reachable"; });
 
 function renderAnswer(box, a, id) {

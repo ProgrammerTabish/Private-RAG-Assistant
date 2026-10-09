@@ -111,12 +111,16 @@ class VectorStore:
         log.info("collection created", extra={"collection": self.collection, "dim": dim})
 
     # ---------------------------------------------------------------- write
-    def upsert(self, chunks: list[Chunk], dense: np.ndarray, sparse: list[tuple[list[int], list[float]]]) -> int:
+    def upsert(self, chunks: list[Chunk], dense: np.ndarray | None, sparse: list[tuple[list[int], list[float]]]) -> int:
+        """Upsert points. ``dense=None`` writes keyword-only points (dense vector added by a later run)."""
         from qdrant_client import models as m
 
-        if not (len(chunks) == len(dense) == len(sparse)):
+        if dense is not None and len(dense) != len(chunks):
             raise IndexError_("chunks/vectors length mismatch", code="INDEX_LENGTH_MISMATCH",
                               chunks=len(chunks), dense=len(dense), sparse=len(sparse))
+        if not len(chunks) == len(sparse):
+            raise IndexError_("chunks/vectors length mismatch", code="INDEX_LENGTH_MISMATCH",
+                              chunks=len(chunks), sparse=len(sparse))
 
         @retry(stop=stop_after_attempt(4), wait=wait_exponential(min=0.5, max=10), reraise=True)
         def _put(points):
@@ -126,11 +130,13 @@ class VectorStore:
         written = 0
         for i in range(0, len(chunks), bs):
             points = []
-            for c, d, (si, sv) in zip(chunks[i:i + bs], dense[i:i + bs], sparse[i:i + bs]):
-                vec: dict[str, Any] = {"dense": d.tolist()}
+            dpart = dense[i:i + bs] if dense is not None else [None] * len(chunks[i:i + bs])
+            for c, d, (si, sv) in zip(chunks[i:i + bs], dpart, sparse[i:i + bs]):
+                vec: dict[str, Any] = {} if d is None else {"dense": d.tolist()}
                 if si:
                     vec["sparse"] = m.SparseVector(indices=si, values=sv)
-                points.append(m.PointStruct(id=point_id(c.chunk_id), vector=vec, payload=c.model_dump(mode="json")))
+                payload = c.model_dump(mode="json") | {"has_dense": d is not None}
+                points.append(m.PointStruct(id=point_id(c.chunk_id), vector=vec, payload=payload))
             try:
                 _put(points)
             except Exception as exc:
@@ -155,20 +161,26 @@ class VectorStore:
             self.client.delete(self.collection, points_selector=m.PointIdsList(points=stale), wait=True)
         return len(stale)
 
-    def existing_chunk_ids(self) -> set[str]:
-        """chunk_ids already stored - used to resume an interrupted build and to embed only new chunks."""
+    def existing_points(self) -> dict[str, bool]:
+        """chunk_id -> has a dense vector. Used to resume a build, to add only new chunks and
+        to continue dense coverage of a time-budgeted (keyword-only) index."""
         if not self.exists():
-            return set()
-        ids: set[str] = set()
+            return {}
+        out: dict[str, bool] = {}
         offset = None
         while True:
             pts, offset = self.client.scroll(self.collection, limit=1000, offset=offset,
-                                             with_payload=["chunk_id"], with_vectors=False)
-            ids |= {(p.payload or {}).get("chunk_id") for p in pts}
+                                             with_payload=["chunk_id", "has_dense"], with_vectors=False)
+            for p in pts:
+                pl = p.payload or {}
+                if pl.get("chunk_id"):
+                    out[pl["chunk_id"]] = bool(pl.get("has_dense", True))   # older points always had dense
             if offset is None:
                 break
-        ids.discard(None)
-        return ids
+        return out
+
+    def existing_chunk_ids(self) -> set[str]:
+        return set(self.existing_points())
 
     @property
     def progress_path(self) -> Path:

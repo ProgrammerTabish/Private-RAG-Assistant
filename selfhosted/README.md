@@ -50,6 +50,13 @@ powershell -ExecutionPolicy Bypass -File selfhosted\scripts\run_local_ollama.ps1
 powershell -ExecutionPolicy Bypass -File selfhosted\scripts\run_local_ollama.ps1 -Limit 5   # quick check
 ```
 
+**Laptop profile (CPU only).** BGE-M3 embeds only ~0.3-0.6 chunks/s on a laptop CPU, so a full
+index takes hours. The launcher therefore gives every chunk keyword (BM25) search immediately and
+adds BGE-M3 vectors for as many chunks as fit in a time budget (default 5 min), spread over all
+50 documents. First start ~10 min, later starts ~1-2 min. `start_chat.ps1 -Improve` adds another
+5 min of BGE-M3 coverage (resumable, coverage grows each time), `-Full` embeds everything.
+Answers use 4 sources x 900 chars and no extra rewrite call (Azure: 8 x 1800 with rewrite).
+
 Options: `-LlmModel qwen2.5:7b` (bigger, slower), `-LlmModel none` (retrieval only, fake LLM),
 `-TopK 8 -MaxSourceChars 1800` (Azure prompt size). Compare runs with
 `python scripts/compare_evals.py A=data/reports/eval_x.json B=data_ollama/reports/eval_y.json`.

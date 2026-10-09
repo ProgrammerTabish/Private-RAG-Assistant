@@ -21,9 +21,14 @@
 param(
     [string]$LlmModel = "auto",         # auto | qwen2.5:7b | qwen2.5:3b | llama3.1:8b | none (= fake LLM)
     [int]$Limit = 0,                    # only the first N questions (0 = all 32)
-    [int]$TopK = 6,                     # chunks given to the LLM (Azure: 8 - lower here for CPU speed)
-    [int]$MaxSourceChars = 1500,        # characters per source in the prompt (Azure: 1800)
-    [int]$ContextTokens = 8192,         # Ollama context window for the LLM
+    [int]$TopK = 4,                     # chunks given to the LLM (Azure: 8 - lower here for CPU speed)
+    [int]$MaxSourceChars = 900,         # characters per source in the prompt (Azure: 1800)
+    [int]$ContextTokens = 4096,         # Ollama context window for the LLM
+    [int]$MaxAnswerTokens = 350,        # answer length limit (Azure: 900)
+    [switch]$QueryRewrite,              # extra LLM call for German search terms (Azure: on; slow on a CPU)
+    [int]$EmbedMinutes = 5,             # BGE-M3 time budget per index run; all chunks always get keyword search
+    [switch]$Improve,                   # on later starts: spend another -EmbedMinutes on more BGE-M3 coverage
+    [switch]$Full,                      # no time budget: embed everything (hours on a laptop CPU)
     [int]$EmbedThreads = 0,             # CPU threads for BGE-M3 (0 = all logical processors)
     [switch]$SkipIndex,                 # reuse the existing index (data_ollama)
     [switch]$NoEval,                    # build only (no 32-question evaluation)
@@ -230,6 +235,19 @@ try {
     $env:PRIVRAG_QDRANT_URL = $QdrantUrl
     $env:PRIVRAG_RERANK_BACKEND = "none"
     $env:PRIVRAG_TOP_K = "$TopK"
+    $env:PRIVRAG_QUERY_REWRITE = if ($QueryRewrite) { "true" } else { "false" }
+    # Time budget for BGE-M3: first build -EmbedMinutes, later starts 0 (instant) unless -Improve; -Full = no limit
+    $metaFile = Join-Path $SelfHosted "data_ollama\index_meta.server.spg_compliance.json"
+    if ($Full) {
+        Remove-Item env:PRIVRAG_INDEX_TIME_BUDGET_S -ErrorAction SilentlyContinue
+        $budgetTxt = "no limit (-Full)"
+    } elseif ((Test-Path $metaFile) -and -not $Improve) {
+        $env:PRIVRAG_INDEX_TIME_BUDGET_S = "0"
+        $budgetTxt = "0 (index exists - quick start; use -Improve to add BGE-M3 coverage)"
+    } else {
+        $env:PRIVRAG_INDEX_TIME_BUDGET_S = "$($EmbedMinutes * 60)"
+        $budgetTxt = "$EmbedMinutes min"
+    }
     $env:PRIVRAG_MAX_SOURCE_CHARS = "$MaxSourceChars"
     $env:PRIVRAG_MIN_CITATIONS = "2"
     if ($LlmServed -ne "none") {
@@ -238,7 +256,7 @@ try {
         $env:PRIVRAG_LLM_MODEL = $LlmServed
         $env:PRIVRAG_LLM_TIMEOUT_S = "900"
         $env:PRIVRAG_LLM_MAX_RETRIES = "1"
-        $env:PRIVRAG_LLM_MAX_TOKENS = "600"
+        $env:PRIVRAG_LLM_MAX_TOKENS = "$MaxAnswerTokens"
     } else {
         $env:PRIVRAG_LLM_BACKEND = "fake"
     }
@@ -247,10 +265,10 @@ try {
     Get-ChildItem env:PRIVRAG_* | ForEach-Object { $Info.settings[$_.Name] = $_.Value }
 
     # ------------------------------------------------------------------ 6 ingest + index
-    Step "6/7 Ingest + index with BGE-M3"
-    Write-Host "On a CPU-only laptop this takes HOURS (12k chunks). Progress with time left is printed"
-    Write-Host "every ~15 s. You can stop any time (Ctrl+C / close window) - the next start resumes."
-    Write-Host "Tip: let it run overnight and keep the laptop plugged in and awake." -ForegroundColor Yellow
+    Step "6/7 Ingest + index (BGE-M3 time budget: $budgetTxt)"
+    Write-Host "All chunks get keyword (BM25) search in seconds; BGE-M3 vectors are added for as many chunks"
+    Write-Host "as fit in the budget, spread over all 50 documents. Progress is printed every ~15 s."
+    Write-Host "More coverage later: run again with -Improve (adds $EmbedMinutes min) or -Full (everything, hours)."
     Invoke-Native "doctor" { & $Py -m privrag.cli doctor --before-build }
     Invoke-Native "ingest" { & $Py -m privrag.cli ingest }
     if (-not $SkipIndex) { Invoke-Native "index" { & $Py -m privrag.cli index } }
