@@ -70,6 +70,16 @@ class Retriever:
                 f"index was built with embed_backend={meta.get('embed_backend')} but settings say {s.embed_backend} "
                 f"- rebuild the index or fix the config", code="INDEX_EMBEDDER_MISMATCH")
         self.embedder = embedder or get_embedder(s)
+        if embedder is None and meta.get("embed_fingerprint"):
+            try:
+                fp = self.embedder.fingerprint()
+            except Exception:
+                fp = None
+            if fp and fp != meta["embed_fingerprint"]:
+                raise RetrievalError(
+                    f"index was built with embedding model '{meta['embed_fingerprint']}' but the configured one is "
+                    f"'{fp}' - query vectors would not match; rebuild the index or fix the config",
+                    code="INDEX_EMBEDDER_MISMATCH")
         self.reranker = reranker if reranker is not None else get_reranker(s)
         self.use_glossary = use_glossary
 

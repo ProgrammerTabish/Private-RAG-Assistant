@@ -24,6 +24,7 @@ param(
     [int]$TopK = 6,                     # chunks given to the LLM (Azure: 8 - lower here for CPU speed)
     [int]$MaxSourceChars = 1500,        # characters per source in the prompt (Azure: 1800)
     [int]$ContextTokens = 8192,         # Ollama context window for the LLM
+    [int]$EmbedThreads = 0,             # CPU threads for BGE-M3 (0 = all logical processors)
     [switch]$SkipIndex,                 # reuse the existing index (data_ollama)
     [switch]$NoEval,                    # build only (no 32-question evaluation)
     [switch]$Serve,                     # start the API + chat UI at the end and open the browser
@@ -105,6 +106,14 @@ try {
     $Info.ollama_version = $v.version
 
     Invoke-Native "pull bge-m3" { ollama pull bge-m3 }
+    # Same BGE-M3 weights, but Ollama by default uses only half of the cores for it.
+    # Using all of them is the biggest speed-up available on a CPU-only laptop.
+    if ($EmbedThreads -le 0) { $EmbedThreads = [Environment]::ProcessorCount }
+    $emf = Join-Path ([IO.Path]::GetTempPath()) "privrag-embed.Modelfile"
+    "FROM bge-m3`nPARAMETER num_thread $EmbedThreads`n" | Set-Content -Path $emf -Encoding ascii
+    Invoke-Native "create privrag-embed" { ollama create privrag-embed -f $emf }
+    $EmbedModel = "privrag-embed"
+    Write-Host "Embedding model: bge-m3 weights as '$EmbedModel' with $EmbedThreads CPU threads"
     $LlmServed = "none"
     if ($LlmModel -ne "none") {
         Invoke-Native "pull $LlmModel" { ollama pull $LlmModel }
@@ -116,11 +125,11 @@ try {
         Invoke-Native "create privrag-llm" { ollama create privrag-llm -f $mf }
         $LlmServed = "privrag-llm"
     }
-    $Info.models = [ordered]@{ embedding = "bge-m3 (Ollama)"; llm = $LlmModel; llm_context = $ContextTokens }
+    $Info.models = [ordered]@{ embedding = "bge-m3 (Ollama, $EmbedThreads threads)"; llm = $LlmModel; llm_context = $ContextTokens }
 
     # ------------------------------------------------------------------ 3 endpoint smoke tests
     Step "3/7 Endpoint smoke tests (same API contract as Azure TEI / vLLM)"
-    $body = @{ model = "bge-m3"; input = @("Meldepflicht nach § 43 GwG", "reporting obligation money laundering") } | ConvertTo-Json
+    $body = @{ model = $EmbedModel; input = @("Meldepflicht nach § 43 GwG", "reporting obligation money laundering") } | ConvertTo-Json
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $emb = Invoke-RestMethod -Method Post "$OllamaUrl/v1/embeddings" -ContentType "application/json; charset=utf-8" `
         -Body ([Text.Encoding]::UTF8.GetBytes($body)) -TimeoutSec 300
@@ -133,6 +142,12 @@ try {
         $r = Invoke-RestMethod -Method Post "$OllamaUrl/v1/chat/completions" -ContentType "application/json; charset=utf-8" `
             -Body ([Text.Encoding]::UTF8.GetBytes($chat)) -TimeoutSec 600
         Write-Host ("/v1/chat/completions OK: '{0}' in {1:N1} s (includes model load)" -f $r.choices[0].message.content.Trim(), $sw.Elapsed.TotalSeconds)
+        # unload the chat model again so indexing has the RAM (it reloads on the first question)
+        try {
+            $unload = @{ model = $LlmServed; keep_alive = 0 } | ConvertTo-Json
+            Invoke-RestMethod -Method Post "$OllamaUrl/api/generate" -ContentType "application/json" -Body $unload -TimeoutSec 60 | Out-Null
+            Write-Host "Chat model unloaded until it is needed (frees RAM for indexing)"
+        } catch { Write-Host "(could not unload chat model: $($_.Exception.Message))" -ForegroundColor DarkGray }
     }
 
     # ------------------------------------------------------------------ 3b qdrant server (as on Azure)
@@ -208,8 +223,8 @@ try {
     $env:PRIVRAG_PARSER_BACKEND = "pymupdf"
     $env:PRIVRAG_EMBED_BACKEND = "remote"
     $env:PRIVRAG_EMBED_URL = "$OllamaUrl/v1"
-    $env:PRIVRAG_EMBED_MODEL = "bge-m3"
-    $env:PRIVRAG_EMBED_BATCH_SIZE = "16"
+    $env:PRIVRAG_EMBED_MODEL = $EmbedModel
+    $env:PRIVRAG_EMBED_BATCH_SIZE = "8"           # work is saved every 64 chunks
     $env:PRIVRAG_EMBED_TIMEOUT_S = "600"
     $env:PRIVRAG_QDRANT_MODE = "server"
     $env:PRIVRAG_QDRANT_URL = $QdrantUrl
@@ -232,7 +247,10 @@ try {
     Get-ChildItem env:PRIVRAG_* | ForEach-Object { $Info.settings[$_.Name] = $_.Value }
 
     # ------------------------------------------------------------------ 6 ingest + index
-    Step "6/7 Ingest + index with BGE-M3 (CPU: expect roughly 10-40 min for 12k chunks, progress is logged)"
+    Step "6/7 Ingest + index with BGE-M3"
+    Write-Host "On a CPU-only laptop this takes HOURS (12k chunks). Progress with time left is printed"
+    Write-Host "every ~15 s. You can stop any time (Ctrl+C / close window) - the next start resumes."
+    Write-Host "Tip: let it run overnight and keep the laptop plugged in and awake." -ForegroundColor Yellow
     Invoke-Native "doctor" { & $Py -m privrag.cli doctor --before-build }
     Invoke-Native "ingest" { & $Py -m privrag.cli ingest }
     if (-not $SkipIndex) { Invoke-Native "index" { & $Py -m privrag.cli index } }

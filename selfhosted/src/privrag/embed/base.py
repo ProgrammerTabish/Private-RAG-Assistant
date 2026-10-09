@@ -234,13 +234,46 @@ def get_embedder(s: Settings) -> Embedder:
     raise EmbeddingError(f"unknown embed backend {s.embed_backend}", code="EMBED_BACKEND_UNKNOWN")
 
 
-def embed_in_batches(embedder: Embedder, texts: list[str], batch_size: int) -> np.ndarray:
-    """Embed in batches with progress logging (~every 5 %) incl. throughput and ETA -
-    embedding 12k chunks on a CPU endpoint takes a while and must not look hung."""
-    out = []
+class Progress:
+    """Throughput/ETA reporter shared across several embed calls (one long indexing run).
+
+    Logs the first batch, then at least every ``every_s`` seconds or every 5 %, and at 100 %,
+    so a slow CPU endpoint never looks hung."""
+
+    def __init__(self, total: int, already_done: int = 0, every_s: float = 15.0, label: str = "embedding progress"):
+        self.total = max(total, 1)
+        self.base = already_done            # done before this run (resumed) - not counted in the rate
+        self.done = already_done
+        self.every_s = every_s
+        self.label = label
+        self.t0 = time.perf_counter()
+        self._last_t = -1e9
+        self._last_pct = -1.0
+
+    def advance(self, n: int) -> None:
+        self.done += n
+        now = time.perf_counter()
+        pct = 100 * self.done / self.total
+        first = self._last_pct < 0
+        if not (first or self.done >= self.total or now - self._last_t >= self.every_s or pct - self._last_pct >= 5):
+            return
+        el = now - self.t0
+        new = self.done - self.base
+        rate = new / el if el > 0 and new > 0 else 0.0
+        eta = round((self.total - self.done) / rate) if rate else None
+        eta_txt = f", ~{eta // 3600}h{(eta % 3600) // 60:02d}m left" if eta is not None and eta >= 60 else ""
+        log.info(f"{self.label} {self.done}/{self.total} ({pct:.0f}%){eta_txt}",
+                 extra={"count": self.done, "rate_per_s": round(rate, 2), "eta_s": eta})
+        self._last_t, self._last_pct = now, pct
+
+
+def embed_in_batches(embedder: Embedder, texts: list[str], batch_size: int,
+                     progress: Progress | None = None) -> np.ndarray:
+    """Embed in batches; reports throughput and ETA through ``progress``."""
     n = len(texts)
-    t0 = time.perf_counter()
-    next_report = 0.05
+    if progress is None and n >= 200:
+        progress = Progress(n)
+    out = []
     for i in range(0, n, batch_size):
         batch = texts[i:i + batch_size]
         try:
@@ -248,14 +281,8 @@ def embed_in_batches(embedder: Embedder, texts: list[str], batch_size: int) -> n
         except EmbeddingError as exc:
             exc.context.update(batch_start=i, batch_size=len(batch))
             raise
-        done = min(i + batch_size, n)
-        if n >= 200 and (done / n >= next_report or done == n):
-            el = time.perf_counter() - t0
-            rate = done / el if el > 0 else 0.0
-            log.info(f"embedding progress {done}/{n} ({100 * done / n:.0f}%)",
-                     extra={"count": done, "rate_per_s": round(rate, 1),
-                            "eta_s": round((n - done) / rate) if rate else None})
-            next_report += 0.05
+        if progress:
+            progress.advance(len(batch))
     return np.vstack(out) if out else np.zeros((0, embedder.dim), dtype=np.float32)
 
 

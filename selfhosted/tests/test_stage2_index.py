@@ -171,3 +171,106 @@ def test_embed_text_contains_context(settings):
     c = next(c for c in load_chunks(settings.chunks_path) if c.section)
     t = chunk_embed_text(c)
     assert c.title in t and c.section in t and c.text in t
+
+
+# ---------------------------------------------------------------- resumable / incremental indexing
+class CountingEmbedder:
+    """Deterministic 'remote' embedder that counts calls and can fail after N texts."""
+    name, dim = "remote", 16
+
+    def __init__(self, fp="fake-v1", fail_after=None):
+        self.fp, self.fail_after, self.seen = fp, fail_after, 0
+
+    def fit(self, texts):
+        return None
+
+    def embed_documents(self, texts):
+        if self.fail_after is not None and self.seen + len(texts) > self.fail_after:
+            raise KeyboardInterrupt("simulated Ctrl+C")
+        self.seen += len(texts)
+        out = np.zeros((len(texts), self.dim), dtype=np.float32)
+        for i, t in enumerate(texts):
+            out[i, hash(t) % self.dim] = 1.0
+            out[i, (hash(t) // 7) % self.dim] += 0.5
+        return out / np.linalg.norm(out, axis=1, keepdims=True)
+
+    def embed_query(self, t):
+        return self.embed_documents([t])[0]
+
+    def fingerprint(self):
+        return self.fp
+
+
+@pytest.fixture()
+def remote_settings(settings, monkeypatch):
+    import privrag.index.pipeline as pl
+    settings.embed_backend = "remote"
+    settings.embed_url = "http://unused"
+    settings.embed_batch_size = 2          # group = 64 -> several groups per corpus
+    state = {"emb": CountingEmbedder()}
+    monkeypatch.setattr(pl, "get_embedder", lambda s: state["emb"])
+    run_ingest(settings)
+    return settings, state
+
+
+def _many_chunks(settings, n=150):
+    """Make the corpus big enough for several upsert groups."""
+    from privrag.ingest.pipeline import load_chunks as lc
+    from privrag.models import Chunk
+    base = lc(settings.chunks_path)
+    extra = []
+    for k in range(n):
+        c = base[k % len(base)].model_copy()
+        c.text = f"{c.text} Variante {k}"
+        c.chunk_id = Chunk.make_id(c.doc_id, 1000 + k, c.text)
+        extra.append(c)
+    settings.chunks_path.write_text("".join(c.model_dump_json() + "\n" for c in base + extra), encoding="utf-8")
+    return len(base) + n
+
+
+def test_index_resumes_after_interruption(remote_settings):
+    settings, state = remote_settings
+    total = _many_chunks(settings)
+    state["emb"] = CountingEmbedder(fail_after=100)          # dies inside the 2nd group
+    with pytest.raises(KeyboardInterrupt):
+        run_index(settings)
+    saved = VectorStore(settings).count()
+    assert saved == 64                                        # first group was saved
+    state["emb"] = CountingEmbedder()
+    r = run_index(settings)
+    assert r["mode"] == "resume" and r["points"] == total
+    assert state["emb"].seen == total - 64                    # only the missing chunks were embedded
+    log = (settings.log_dir / "latest.jsonl").read_text(encoding="utf-8")
+    assert "index plan: resume - 64 chunks already indexed" in log and "embedding progress" in log
+
+
+def test_index_incremental_embeds_only_new_chunks(remote_settings, corpus):
+    from conftest import make_pdf
+    settings, state = remote_settings
+    first = run_index(settings)
+    make_pdf(corpus / "02_Test_DORA.pdf", ["Artikel 1\nGegenstand\nNeuer Inhalt der Verordnung über Resilienz " * 3])
+    run_ingest(settings)
+    state["emb"] = CountingEmbedder()
+    r = run_index(settings)
+    from privrag.ingest.pipeline import load_chunks as lc
+    new_dora = [c for c in lc(settings.chunks_path) if c.doc_id == "02_Test_DORA"]
+    assert r["mode"] == "incremental" and state["emb"].seen == len(new_dora)
+    assert r["points"] == len(lc(settings.chunks_path)) < first["points"] + len(new_dora)
+
+
+def test_index_rebuilds_when_embedder_changes(remote_settings):
+    settings, state = remote_settings
+    first = run_index(settings)
+    state["emb"] = CountingEmbedder(fp="fake-v2")
+    r = run_index(settings, recreate=False)
+    assert r["mode"] == "full" and state["emb"].seen == first["points"] == r["points"]
+
+
+def test_progress_reporter_logs_eta(settings):
+    from privrag.embed.base import Progress
+    p = Progress(total=1000, already_done=200, every_s=0)
+    import time as _t
+    _t.sleep(0.01)
+    p.advance(100)
+    log = (settings.log_dir / "latest.jsonl").read_text(encoding="utf-8")
+    assert "embedding progress 300/1000 (30%)" in log and '"eta_s"' in log

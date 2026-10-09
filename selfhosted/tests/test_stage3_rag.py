@@ -224,3 +224,19 @@ def test_rewrite_failure_is_not_fatal(indexed):
 
 def test_confidence_bounds():
     assert confidence([], [], "x", 2) == 0.0
+
+
+def test_retriever_refuses_other_embedding_model_same_backend(settings, monkeypatch):
+    """bge-m3 index queried with e5 (both 'remote') must be refused, not silently mismatched."""
+    import json as _json
+    run_ingest(settings)
+    run_index(settings)
+    from privrag.index.store import VectorStore
+    st = VectorStore(settings)
+    meta = st.read_meta()
+    meta.update(embed_backend="remote", embed_fingerprint="remote-bge-m3")
+    st.write_meta(meta)
+    settings.embed_backend, settings.embed_url, settings.embed_model = "remote", "http://x/v1", "e5-large"
+    with pytest.raises(RetrievalError) as e:
+        Retriever(settings)
+    assert e.value.code == "INDEX_EMBEDDER_MISMATCH" and "e5-large" in str(e.value)

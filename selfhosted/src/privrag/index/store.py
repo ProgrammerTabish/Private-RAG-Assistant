@@ -155,6 +155,36 @@ class VectorStore:
             self.client.delete(self.collection, points_selector=m.PointIdsList(points=stale), wait=True)
         return len(stale)
 
+    def existing_chunk_ids(self) -> set[str]:
+        """chunk_ids already stored - used to resume an interrupted build and to embed only new chunks."""
+        if not self.exists():
+            return set()
+        ids: set[str] = set()
+        offset = None
+        while True:
+            pts, offset = self.client.scroll(self.collection, limit=1000, offset=offset,
+                                             with_payload=["chunk_id"], with_vectors=False)
+            ids |= {(p.payload or {}).get("chunk_id") for p in pts}
+            if offset is None:
+                break
+        ids.discard(None)
+        return ids
+
+    @property
+    def progress_path(self) -> Path:
+        return self.meta_path.with_name(self.meta_path.name.replace("index_meta", "index_progress", 1))
+
+    def read_progress(self) -> dict:
+        try:
+            return json.loads(self.progress_path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+
+    def write_progress(self, data: dict) -> None:
+        tmp = self.progress_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=1), encoding="utf-8")
+        tmp.replace(self.progress_path)
+
     def count(self) -> int:
         return self.client.count(self.collection, exact=True).count if self.exists() else 0
 
