@@ -130,7 +130,7 @@ def _wait_for(name: str, check, timeout_s: float, every_s: float = 5.0) -> None:
 def init(only: list[str] = typer.Option(None, help="doc_id(s) to index (default: all PDFs)"),
          wait_s: float = typer.Option(1800, help="max seconds to wait for Qdrant and the embedding service"),
          allow_failures: int = typer.Option(0, help="tolerate up to N PDFs that cannot be parsed")):
-    """One-shot container job: wait for Qdrant + embedding service, then ingest and index.
+    """One-shot job: wait for Qdrant + embedding service, then ingest and index.
 
     Safe to run on every start: unchanged documents and an up-to-date index are skipped,
     an interrupted embedding run resumes, so the expensive embedding happens only once.

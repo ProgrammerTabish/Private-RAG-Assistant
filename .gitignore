@@ -1,0 +1,6 @@
+# local runtime (Python venv, uv, Ollama binary) - recreated by the scripts
+.runtime/
+# vector DB, chunks, BGE-M3 + Ollama models, logs - keep / transfer this folder, never commit it
+db_data/
+__pycache__/
+*.pyc

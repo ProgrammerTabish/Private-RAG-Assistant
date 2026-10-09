@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     )
 
     # ---- environment ---------------------------------------------------
-    env: Literal["local", "azure", "container", "test"] = "local"
+    env: Literal["local", "azure", "test"] = "local"
 
     # ---- paths -----------------------------------------------------------
     pdf_dir: Path = REPO_DIR / "documents" / "spg_compliance"
@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     embed_model: str = "BAAI/bge-m3"
     embed_url: str | None = None  # OpenAI-compatible /v1/embeddings (TEI or vLLM)
     embed_batch_size: int = Field(32, ge=1)
+    embed_device: str = Field("auto", description="bge-m3 device: auto | cuda | cuda:0 | cpu")
+    require_gpu: bool = Field(False, description="refuse to embed with bge-m3 when no CUDA GPU is usable")
+    progress_every: int = Field(0, ge=0, description="also print progress after every N embedded chunks (0 = off)")
     embed_timeout_s: float = Field(120.0, gt=0, description="per embedding request (CPU servers need more)")
     index_time_budget_s: float | None = Field(
         None, ge=0, description="limit dense embedding time per index run; all chunks still get BM25. "

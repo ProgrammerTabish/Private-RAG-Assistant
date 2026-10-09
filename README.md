@@ -103,3 +103,12 @@ Bachelor or Master students in Computer Science, Data Science or Information Sys
 - [Llama 3.3 70B Instruct](https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct)
 - [FastAPI](https://fastapi.tiangolo.com/)
 - Regulatory sources: [BaFin](https://www.bafin.de), [MaRisk](https://www.bafin.de/DE/Aufsicht/BankenFinanzdienstleister/MaRisk/maRisk_node.html), [EBA Guidelines](https://www.eba.europa.eu/regulation-and-policy)
+
+## Run it (self-hosted, no Docker)
+
+```bash
+./make_embeddings.sh   # NVIDIA GPU -> BGE-M3 embeddings -> Qdrant in ./db_data, prints DONE!
+./install_run_rag.sh   # Ollama + mistral-small3.1:24b + RAG API on http://127.0.0.1:8000
+```
+
+Details: [RUN.md](RUN.md)

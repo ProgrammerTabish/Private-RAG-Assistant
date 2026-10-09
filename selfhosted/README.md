@@ -39,7 +39,14 @@ ingestion code re-processes only what is affected. `--force` / `--recreate` rebu
 
 ## Deployment
 
-Docker deployment (API + Qdrant + BGE-M3, LLM outside): see [`../DEPLOY.md`](../DEPLOY.md).
+No Docker / containers. On a Linux machine with an NVIDIA GPU (no sudo needed), from the repo root:
+
+```bash
+./make_embeddings.sh    # GPU check, deps, PDFs -> BGE-M3 embeddings -> Qdrant in ../db_data
+./install_run_rag.sh    # Ollama + mistral-small3.1:24b, then the API on the db_data embeddings
+```
+
+See [`../RUN.md`](../RUN.md).
 
 ## How retrieval works (and why)
 

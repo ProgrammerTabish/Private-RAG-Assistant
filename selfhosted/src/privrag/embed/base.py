@@ -134,23 +134,49 @@ class BGEM3Embedder:
     name = "bge-m3"
     dim = 1024
 
-    def __init__(self, model_name: str, batch_size: int):
+    def __init__(self, model_name: str, batch_size: int, device: str = "auto", require_gpu: bool = False):
         self.model_name = model_name
         self.batch_size = batch_size
+        self.device = self._pick_device(device, require_gpu)
+        fp16 = self.device.startswith("cuda")
         try:
             from FlagEmbedding import BGEM3FlagModel
-            self._model = BGEM3FlagModel(model_name, use_fp16=True)
+            try:
+                self._model = BGEM3FlagModel(model_name, use_fp16=fp16, devices=[self.device])
+            except TypeError:   # older FlagEmbedding versions take `device`
+                self._model = BGEM3FlagModel(model_name, use_fp16=fp16, device=self.device)
             self._kind = "flag"
         except ImportError:
             try:
                 from sentence_transformers import SentenceTransformer
-                self._model = SentenceTransformer(model_name)
+                kwargs = {}
+                if fp16:
+                    import torch
+                    kwargs["model_kwargs"] = {"torch_dtype": torch.float16}
+                self._model = SentenceTransformer(model_name, device=self.device, **kwargs)
                 self._kind = "st"
             except ImportError as exc:
                 raise EmbeddingError("bge-m3 needs FlagEmbedding or sentence-transformers (pip install 'privrag[models]')",
                                      code="EMBED_BACKEND_MISSING") from exc
+            except Exception as exc:
+                raise EmbeddingError(f"cannot load {model_name}: {exc}", code="EMBED_MODEL_LOAD_FAILED") from exc
         except Exception as exc:
             raise EmbeddingError(f"cannot load {model_name}: {exc}", code="EMBED_MODEL_LOAD_FAILED") from exc
+        log.info("bge-m3 loaded", extra={"device": self.device, "fp16": fp16, "kind": self._kind})
+
+    @staticmethod
+    def _pick_device(device: str, require_gpu: bool) -> str:
+        try:
+            import torch
+            cuda = torch.cuda.is_available()
+        except ImportError:
+            cuda = False
+        if device == "auto":
+            device = "cuda" if cuda else "cpu"
+        if require_gpu and (not cuda or not device.startswith("cuda")):
+            raise EmbeddingError("no usable NVIDIA GPU for bge-m3 (torch.cuda.is_available() is False) "
+                                 "and require_gpu is set", code="EMBED_NO_GPU")
+        return device
 
     def fit(self, texts: list[str]) -> None:  # pre-trained, nothing to fit
         return None
@@ -160,7 +186,8 @@ class BGEM3Embedder:
         if self._kind == "flag":
             out = self._model.encode(texts, batch_size=self.batch_size, max_length=8192)["dense_vecs"]
         else:
-            out = self._model.encode(texts, batch_size=self.batch_size, normalize_embeddings=True)
+            out = self._model.encode(texts, batch_size=self.batch_size, normalize_embeddings=True,
+                                     show_progress_bar=False)
         return _validate(_l2(np.asarray(out)), len(texts), self.dim, self.name)
 
     def embed_query(self, text: str) -> np.ndarray:
@@ -228,7 +255,7 @@ def get_embedder(s: Settings) -> Embedder:
     if s.embed_backend == "lsa":
         return LSAEmbedder(dim=s.embed_dim, model_path=s.models_dir / "lsa.joblib")
     if s.embed_backend == "bge-m3":
-        return BGEM3Embedder(s.embed_model, s.embed_batch_size)
+        return BGEM3Embedder(s.embed_model, s.embed_batch_size, device=s.embed_device, require_gpu=s.require_gpu)
     if s.embed_backend == "remote":
         return RemoteEmbedder(s.embed_url or "", s.embed_model, timeout=s.embed_timeout_s)
     raise EmbeddingError(f"unknown embed backend {s.embed_backend}", code="EMBED_BACKEND_UNKNOWN")
@@ -241,7 +268,8 @@ class Progress:
     so a slow CPU endpoint never looks hung."""
 
     def __init__(self, total: int, already_done: int = 0, every_s: float = 15.0, label: str = "embedding progress",
-                 deadline: float | None = None):
+                 deadline: float | None = None, every_n: int = 0):
+        self.every_n = every_n              # additionally print a line after every N embedded chunks
         self.deadline = deadline            # perf_counter() value when a time budget ends
         self.total = max(total, 1)
         self.base = already_done            # done before this run (resumed) - not counted in the rate
@@ -253,8 +281,13 @@ class Progress:
         self._last_pct = -1.0
 
     def advance(self, n: int) -> None:
+        prev = self.done
         self.done += n
         now = time.perf_counter()
+        if self.every_n:
+            step_n = self.every_n
+            for mark in range((prev // step_n + 1) * step_n, self.done + 1, step_n):
+                print(f"[progress] {mark}/{self.total} embeddings done ({100 * mark / self.total:.1f}%)", flush=True)
         pct = 100 * self.done / self.total
         first = self._last_pct < 0
         if not (first or self.done >= self.total or now - self._last_t >= self.every_s or pct - self._last_pct >= 5):

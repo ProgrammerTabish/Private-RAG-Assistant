@@ -161,7 +161,8 @@ def run_index(settings: Settings, recreate: bool = False) -> dict:
         group = max(settings.embed_batch_size * 2, 16) if budget is not None else max(settings.embed_batch_size * 8, 64)
         progress = Progress(total=len(chunks), already_done=already,
                             label="BGE-M3 vectors" if budget is not None else "embedding progress",
-                            deadline=(t_run + budget) if budget is not None else None)
+                            deadline=(t_run + budget) if budget is not None else None,
+                            every_n=settings.progress_every)
         stopped_by_budget = False
         with stage("index.embed"), step("embed + upsert", log) as r:
             last_group_s = 0.0
