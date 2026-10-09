@@ -52,6 +52,7 @@ download() {  # download <url> <file>
 setup_python() {
   mkdir -p "$RUNTIME"
   export UV_CACHE_DIR="$RUNTIME/uv-cache" UV_PYTHON_INSTALL_DIR="$RUNTIME/python"
+  export UV_LINK_MODE=copy   # no "failed to hardlink" warning on filesystems without hard links
   UV="$RUNTIME/uv/uv"
   if [[ ! -x "$UV" ]]; then
     log "installing uv (Python package manager) into $RUNTIME/uv ..."
