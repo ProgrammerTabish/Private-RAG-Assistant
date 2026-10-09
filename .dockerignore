@@ -11,3 +11,4 @@ selfhosted/tests
 _model_transfer
 *.cmd
 .env
+**/build

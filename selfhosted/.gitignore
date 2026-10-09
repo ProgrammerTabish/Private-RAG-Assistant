@@ -9,3 +9,4 @@ __pycache__/
 .venv-win/
 data_ollama/
 tools/
+build/
