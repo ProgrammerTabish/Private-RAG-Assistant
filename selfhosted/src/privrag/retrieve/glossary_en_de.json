@@ -1,112 +1,463 @@
 {
-  "_comment": "Generic EN->DE banking-compliance vocabulary used to expand English questions for the German keyword (BM25) search. Domain terminology only - not tied to any evaluation question. Extend freely.",
-  "money laundering": ["Geldwäsche"],
-  "anti-money laundering": ["Geldwäsche", "Geldwäschegesetz"],
-  "money laundering act": ["Geldwäschegesetz", "GwG"],
-  "terrorist financing": ["Terrorismusfinanzierung"],
-  "customer due diligence": ["Sorgfaltspflichten", "allgemeine Sorgfaltspflichten"],
-  "due diligence": ["Sorgfaltspflichten"],
-  "enhanced due diligence": ["verstärkte Sorgfaltspflichten"],
-  "simplified due diligence": ["vereinfachte Sorgfaltspflichten"],
-  "beneficial owner": ["wirtschaftlich Berechtigter", "wirtschaftlich Berechtigten"],
-  "business relationship": ["Geschäftsbeziehung"],
-  "transaction": ["Transaktion"],
-  "identification": ["Identifizierung"],
-  "identity": ["Identität", "Identifizierung"],
-  "politically exposed person": ["politisch exponierte Person"],
-  "high-risk third country": ["Drittstaat mit hohem Risiko", "Hochrisikoländer"],
-  "high-risk third countries": ["Drittstaaten mit hohem Risiko"],
-  "retain": ["Aufbewahrung", "aufbewahren", "Aufbewahrungsfrist"],
-  "retention": ["Aufbewahrung", "Aufbewahrungsfrist"],
-  "records": ["Aufzeichnungen", "Aufzeichnungspflicht"],
-  "record": ["Aufzeichnung"],
-  "suspicious activity report": ["Verdachtsmeldung", "Meldepflicht"],
-  "suspicious transaction": ["Verdachtsmeldung", "verdächtige Transaktion"],
-  "suspicion": ["Verdacht", "Verdachtsfall"],
-  "report": ["Meldung", "Meldepflicht"],
-  "financial intelligence unit": ["Zentralstelle für Finanztransaktionsuntersuchungen", "FIU"],
-  "tipping off": ["Verbot der Informationsweitergabe"],
-  "tell its customer": ["Verbot der Informationsweitergabe"],
-  "execute the transaction": ["Durchführung von Transaktionen", "Fristfall"],
-  "money laundering reporting officer": ["Geldwäschebeauftragter"],
-  "compliance officer": ["Geldwäschebeauftragter", "Compliance-Beauftragter"],
-  "video identification": ["Videoidentifizierung", "Videoident"],
-  "remote onboarding": ["Fern-Kundenannahme"],
-  "transfer of funds": ["Geldtransfer"],
-  "wire transfer": ["Geldtransfer", "Überweisung"],
-  "crypto-asset": ["Kryptowerte"],
-  "sanctions": ["Sanktionen", "restriktive Maßnahmen"],
-  "asset freeze": ["Einfrieren", "eingefroren"],
-  "freeze": ["Einfrieren", "eingefroren"],
-  "frozen funds": ["eingefrorene Gelder"],
-  "make funds available": ["zur Verfügung gestellt", "Bereitstellungsverbot"],
-  "listed person": ["gelistete Person", "Anhang I"],
-  "derogation": ["Ausnahme", "abweichend"],
-  "deposits": ["Einlagen"],
-  "securities": ["Wertpapiere"],
-  "payment reporting": ["Meldung von Zahlungen"],
-  "foreign trade": ["Außenwirtschaft"],
-  "risk management": ["Risikomanagement"],
-  "internal control system": ["internes Kontrollsystem"],
-  "compliance function": ["Compliance-Funktion"],
-  "internal audit": ["Interne Revision"],
-  "proper business organisation": ["ordnungsgemäße Geschäftsorganisation"],
-  "internal safeguards": ["interne Sicherungsmaßnahmen"],
-  "fraud": ["strafbare Handlungen", "Betrug"],
-  "whistleblower": ["Hinweisgeber", "Hinweisgeberschutz", "interne Meldestelle"],
-  "whistleblowing": ["Hinweisgeber", "interne Meldestelle"],
-  "internal reporting channel": ["interne Meldestelle"],
-  "data breach": ["Verletzung des Schutzes personenbezogener Daten"],
-  "personal data breach": ["Verletzung des Schutzes personenbezogener Daten"],
-  "supervisory authority": ["Aufsichtsbehörde"],
-  "data subject": ["betroffene Person"],
-  "notify": ["Meldung", "melden", "benachrichtigen"],
-  "notification": ["Meldung", "Benachrichtigung"],
-  "ict": ["IKT"],
-  "ict incident": ["IKT-bezogener Vorfall", "Vorfall"],
-  "major incident": ["schwerwiegender IKT-bezogener Vorfall"],
-  "incident": ["Vorfall"],
-  "initial notification": ["Erstmeldung"],
-  "intermediate report": ["Zwischenmeldung"],
-  "final report": ["Abschlussmeldung"],
-  "ict third-party service provider": ["IKT-Drittdienstleister"],
-  "third-party provider": ["Drittdienstleister"],
-  "contractual provisions": ["Vertragsbestimmungen", "vertragliche Vereinbarungen"],
-  "contract": ["Vertrag", "vertragliche Vereinbarungen"],
-  "simplified ict risk management framework": ["vereinfachter IKT-Risikomanagementrahmen"],
-  "risk management framework": ["Risikomanagementrahmen"],
-  "apply": ["gilt", "Anwendung", "Geltungsbereich"],
-  "scope": ["Geltungsbereich", "Anwendungsbereich"],
-  "suitability": ["Geeignetheit", "Geeignetheitsprüfung"],
-  "appropriateness": ["Angemessenheit", "Angemessenheitsprüfung"],
-  "investment advice": ["Anlageberatung"],
-  "portfolio management": ["Finanzportfolioverwaltung"],
-  "execution-only": ["reines Ausführungsgeschäft"],
-  "recording of telephone": ["Aufzeichnung von Telefongesprächen", "Aufzeichnungspflicht"],
-  "telephone conversations": ["Telefongespräche", "elektronische Kommunikation"],
-  "market abuse": ["Marktmissbrauch"],
-  "market manipulation": ["Marktmanipulation"],
-  "insider dealing": ["Insidergeschäfte"],
-  "suspicious transaction and order report": ["Verdachtsmeldung", "Aufdeckung von Marktmissbrauch"],
-  "complaints": ["Beschwerden", "Beschwerdebearbeitung"],
-  "payment account": ["Zahlungskonto"],
-  "payment services": ["Zahlungsdienste"],
-  "unauthorised payment": ["nicht autorisierter Zahlungsvorgang"],
-  "unauthorized payment": ["nicht autorisierter Zahlungsvorgang"],
-  "refund": ["Erstattung"],
-  "liability": ["Haftung"],
-  "payer": ["Zahler"],
-  "gross negligence": ["grob fahrlässig"],
-  "instant payment": ["Echtzeitüberweisung"],
-  "verification of payee": ["Empfängerüberprüfung"],
-  "outsourcing": ["Auslagerung"],
-  "management body": ["Leitungsorgan", "Geschäftsleitung"],
-  "governance": ["Unternehmensführung", "Governance"],
-  "credit institution": ["Kreditinstitut"],
-  "bank": ["Kreditinstitut", "Institut"],
-  "deadline": ["Frist"],
-  "without delay": ["unverzüglich"],
-  "fine": ["Bußgeld", "Geldbuße"],
-  "penalty": ["Bußgeld", "Sanktion"],
-  "administrative offence": ["Ordnungswidrigkeit"]
+  "_comment": "Generic compliance vocabulary for the keyword (BM25) search: English->German terms for English questions, plus German synonyms where the law uses another word (Bußgeld vs. Geldbuße). Domain terminology only - not tied to any evaluation question. Only used for keyword search, never for the BGE-M3 search.",
+  "money laundering": [
+    "Geldwäsche"
+  ],
+  "anti-money laundering": [
+    "Geldwäsche",
+    "Geldwäschegesetz"
+  ],
+  "money laundering act": [
+    "Geldwäschegesetz",
+    "GwG"
+  ],
+  "terrorist financing": [
+    "Terrorismusfinanzierung"
+  ],
+  "customer due diligence": [
+    "Sorgfaltspflichten",
+    "allgemeine Sorgfaltspflichten"
+  ],
+  "due diligence": [
+    "Sorgfaltspflichten"
+  ],
+  "enhanced due diligence": [
+    "verstärkte Sorgfaltspflichten"
+  ],
+  "simplified due diligence": [
+    "vereinfachte Sorgfaltspflichten"
+  ],
+  "beneficial owner": [
+    "wirtschaftlich Berechtigter",
+    "wirtschaftlich Berechtigten"
+  ],
+  "business relationship": [
+    "Geschäftsbeziehung"
+  ],
+  "transaction": [
+    "Transaktion"
+  ],
+  "identification": [
+    "Identifizierung"
+  ],
+  "identity": [
+    "Identität",
+    "Identifizierung"
+  ],
+  "politically exposed person": [
+    "politisch exponierte Person"
+  ],
+  "high-risk third country": [
+    "Drittstaat mit hohem Risiko",
+    "Hochrisikoländer"
+  ],
+  "high-risk third countries": [
+    "Drittstaaten mit hohem Risiko"
+  ],
+  "retain": [
+    "Aufbewahrung",
+    "aufbewahren",
+    "Aufbewahrungsfrist"
+  ],
+  "retention": [
+    "Aufbewahrung",
+    "Aufbewahrungsfrist"
+  ],
+  "records": [
+    "Aufzeichnungen",
+    "Aufzeichnungspflicht"
+  ],
+  "record": [
+    "Aufzeichnung"
+  ],
+  "suspicious activity report": [
+    "Verdachtsmeldung",
+    "Meldepflicht"
+  ],
+  "suspicious transaction": [
+    "Verdachtsmeldung",
+    "verdächtige Transaktion"
+  ],
+  "suspicion": [
+    "Verdacht",
+    "Verdachtsfall"
+  ],
+  "report": [
+    "Meldung",
+    "Meldepflicht"
+  ],
+  "financial intelligence unit": [
+    "Zentralstelle für Finanztransaktionsuntersuchungen",
+    "FIU"
+  ],
+  "tipping off": [
+    "Verbot der Informationsweitergabe"
+  ],
+  "tell its customer": [
+    "Verbot der Informationsweitergabe"
+  ],
+  "execute the transaction": [
+    "Durchführung von Transaktionen",
+    "Fristfall"
+  ],
+  "money laundering reporting officer": [
+    "Geldwäschebeauftragter"
+  ],
+  "compliance officer": [
+    "Geldwäschebeauftragter",
+    "Compliance-Beauftragter"
+  ],
+  "video identification": [
+    "Videoidentifizierung",
+    "Videoident"
+  ],
+  "remote onboarding": [
+    "Fern-Kundenannahme"
+  ],
+  "transfer of funds": [
+    "Geldtransfer"
+  ],
+  "wire transfer": [
+    "Geldtransfer",
+    "Überweisung"
+  ],
+  "crypto-asset": [
+    "Kryptowerte"
+  ],
+  "sanctions": [
+    "Sanktionen",
+    "restriktive Maßnahmen"
+  ],
+  "asset freeze": [
+    "Einfrieren",
+    "eingefroren"
+  ],
+  "freeze": [
+    "Einfrieren",
+    "eingefroren"
+  ],
+  "frozen funds": [
+    "eingefrorene Gelder"
+  ],
+  "make funds available": [
+    "zur Verfügung gestellt",
+    "Bereitstellungsverbot"
+  ],
+  "listed person": [
+    "gelistete Person",
+    "Anhang I"
+  ],
+  "derogation": [
+    "Ausnahme",
+    "abweichend"
+  ],
+  "deposits": [
+    "Einlagen"
+  ],
+  "securities": [
+    "Wertpapiere"
+  ],
+  "payment reporting": [
+    "Meldung von Zahlungen"
+  ],
+  "foreign trade": [
+    "Außenwirtschaft"
+  ],
+  "risk management": [
+    "Risikomanagement"
+  ],
+  "internal control system": [
+    "internes Kontrollsystem"
+  ],
+  "compliance function": [
+    "Compliance-Funktion"
+  ],
+  "internal audit": [
+    "Interne Revision"
+  ],
+  "proper business organisation": [
+    "ordnungsgemäße Geschäftsorganisation"
+  ],
+  "internal safeguards": [
+    "interne Sicherungsmaßnahmen"
+  ],
+  "fraud": [
+    "strafbare Handlungen",
+    "Betrug"
+  ],
+  "whistleblower": [
+    "Hinweisgeber",
+    "hinweisgebende Person"
+  ],
+  "whistleblowing": [
+    "Hinweisgeber",
+    "Meldung"
+  ],
+  "data breach": [
+    "Verletzung des Schutzes personenbezogener Daten"
+  ],
+  "personal data breach": [
+    "Verletzung des Schutzes personenbezogener Daten"
+  ],
+  "supervisory authority": [
+    "Aufsichtsbehörde"
+  ],
+  "data subject": [
+    "betroffene Person"
+  ],
+  "notify": [
+    "Meldung",
+    "melden",
+    "benachrichtigen"
+  ],
+  "notification": [
+    "Meldung",
+    "Benachrichtigung"
+  ],
+  "ict": [
+    "IKT"
+  ],
+  "ict incident": [
+    "IKT-bezogener Vorfall",
+    "Vorfall"
+  ],
+  "major incident": [
+    "schwerwiegender IKT-bezogener Vorfall"
+  ],
+  "incident": [
+    "Vorfall"
+  ],
+  "initial notification": [
+    "Erstmeldung"
+  ],
+  "intermediate report": [
+    "Zwischenmeldung"
+  ],
+  "final report": [
+    "Abschlussmeldung"
+  ],
+  "ict third-party service provider": [
+    "IKT-Drittdienstleister"
+  ],
+  "third-party provider": [
+    "Drittdienstleister"
+  ],
+  "contractual provisions": [
+    "Vertragsbestimmungen",
+    "vertragliche Vereinbarungen"
+  ],
+  "contract": [
+    "Vertrag",
+    "vertragliche Vereinbarungen"
+  ],
+  "simplified ict risk management framework": [
+    "vereinfachter IKT-Risikomanagementrahmen"
+  ],
+  "risk management framework": [
+    "Risikomanagementrahmen"
+  ],
+  "apply": [
+    "gilt",
+    "Anwendung",
+    "Geltungsbereich"
+  ],
+  "scope": [
+    "Geltungsbereich",
+    "Anwendungsbereich"
+  ],
+  "suitability": [
+    "Geeignetheit",
+    "Geeignetheitsprüfung"
+  ],
+  "appropriateness": [
+    "Angemessenheit",
+    "Angemessenheitsprüfung"
+  ],
+  "investment advice": [
+    "Anlageberatung"
+  ],
+  "portfolio management": [
+    "Finanzportfolioverwaltung"
+  ],
+  "execution-only": [
+    "reines Ausführungsgeschäft"
+  ],
+  "recording of telephone": [
+    "Aufzeichnung von Telefongesprächen",
+    "Aufzeichnungspflicht"
+  ],
+  "telephone conversations": [
+    "Telefongespräche",
+    "elektronische Kommunikation"
+  ],
+  "market abuse": [
+    "Marktmissbrauch"
+  ],
+  "market manipulation": [
+    "Marktmanipulation"
+  ],
+  "insider dealing": [
+    "Insidergeschäfte"
+  ],
+  "suspicious transaction and order report": [
+    "Verdachtsmeldung",
+    "Aufdeckung von Marktmissbrauch"
+  ],
+  "complaints": [
+    "Beschwerden",
+    "Beschwerdebearbeitung"
+  ],
+  "payment account": [
+    "Zahlungskonto"
+  ],
+  "payment services": [
+    "Zahlungsdienste"
+  ],
+  "unauthorised payment": [
+    "nicht autorisierter Zahlungsvorgang"
+  ],
+  "unauthorized payment": [
+    "nicht autorisierter Zahlungsvorgang"
+  ],
+  "refund": [
+    "Erstattung"
+  ],
+  "liability": [
+    "Haftung"
+  ],
+  "payer": [
+    "Zahler"
+  ],
+  "gross negligence": [
+    "grob fahrlässig"
+  ],
+  "instant payment": [
+    "Echtzeitüberweisung"
+  ],
+  "verification of payee": [
+    "Empfängerüberprüfung"
+  ],
+  "outsourcing": [
+    "Auslagerung"
+  ],
+  "management body": [
+    "Leitungsorgan",
+    "Geschäftsleitung"
+  ],
+  "governance": [
+    "Unternehmensführung",
+    "Governance"
+  ],
+  "credit institution": [
+    "Kreditinstitut"
+  ],
+  "bank": [
+    "Kreditinstitut",
+    "Institut"
+  ],
+  "deadline": [
+    "Frist"
+  ],
+  "without delay": [
+    "unverzüglich"
+  ],
+  "fine": [
+    "Bußgeld",
+    "Geldbuße"
+  ],
+  "penalty": [
+    "Bußgeld",
+    "Sanktion"
+  ],
+  "administrative offence": [
+    "Ordnungswidrigkeit"
+  ],
+  "whistleblowers": [
+    "Hinweisgeber",
+    "hinweisgebende Personen"
+  ],
+  "whistleblower protection act": [
+    "Hinweisgeberschutzgesetz",
+    "HinSchG"
+  ],
+  "internal reporting channel": [
+    "interne Meldestelle"
+  ],
+  "internal reporting office": [
+    "interne Meldestelle"
+  ],
+  "external reporting office": [
+    "externe Meldestelle"
+  ],
+  "external reporting channel": [
+    "externe Meldestelle"
+  ],
+  "reporting office": [
+    "Meldestelle"
+  ],
+  "reporting channel": [
+    "Meldestelle",
+    "Meldekanal"
+  ],
+  "protect": [
+    "Schutz",
+    "geschützt"
+  ],
+  "protected persons": [
+    "geschützte Personen"
+  ],
+  "protection": [
+    "Schutz"
+  ],
+  "in addition to": [
+    "weitere"
+  ],
+  "feedback": [
+    "Rückmeldung"
+  ],
+  "confirm receipt": [
+    "Eingang bestätigen",
+    "Eingangsbestätigung"
+  ],
+  "anonymous": [
+    "anonym",
+    "anonyme Meldungen"
+  ],
+  "documentation": [
+    "Dokumentation"
+  ],
+  "disadvantage": [
+    "Benachteiligung",
+    "Repressalien"
+  ],
+  "retaliation": [
+    "Repressalien"
+  ],
+  "reprisal": [
+    "Repressalien"
+  ],
+  "burden of proof": [
+    "Beweislast"
+  ],
+  "damages": [
+    "Schadensersatz"
+  ],
+  "employees": [
+    "Beschäftigte"
+  ],
+  "employer": [
+    "Beschäftigungsgeber"
+  ],
+  "bußgeld": [
+    "Geldbuße",
+    "Ordnungswidrigkeit"
+  ],
+  "strafe": [
+    "Geldbuße",
+    "Ordnungswidrigkeit"
+  ],
+  "aufbewahrt": [
+    "Aufbewahrung",
+    "gelöscht"
+  ]
 }

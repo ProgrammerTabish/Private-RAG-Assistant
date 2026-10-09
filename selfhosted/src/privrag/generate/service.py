@@ -33,6 +33,24 @@ def _usage_since(llm, mark: int) -> dict[str, int]:
             "completion_tokens": sum(c.get("completion_tokens", 0) for c in calls)}
 
 
+def interpret_refusal(raw: str) -> tuple[bool, str]:
+    """Small models sometimes write the refusal marker *and then* a cited answer
+    ("NOT_IN_SOURCES\n\nThe act also protects ... [1]"). Treat it as a refusal only if
+    nothing substantial remains once the marker is removed; otherwise drop the marker
+    and keep the answer. Returns (refused, cleaned_text)."""
+    import re
+    marker = prompts.NOT_IN_SOURCES
+    if marker not in raw:
+        return False, raw
+    rest = re.sub(rf"\s*{marker}[.:]?\s*", " ", raw).strip()
+    if len(rest) < 60 or not parse_citations(rest):
+        return True, raw
+    return False, MARKED + rest
+
+
+MARKED = "\u2063"      # invisible flag: the model also emitted the refusal marker
+
+
 class RagService:
     def __init__(self, s: Settings, retriever: Retriever | None = None, llm: ChatLLM | None = None):
         self.s = s
@@ -112,13 +130,22 @@ class RagService:
             try:
                 with stage("rag.generate"), step("generate", log) as r:
                     raw = self.llm.complete(prompts.ANSWER_SYSTEM, user)
+                    refused, raw = interpret_refusal(raw)
+                    if refused and chunks and self.s.refusal_recheck:
+                        log.warning("model refused although sources were found - asking it to re-check once")
+                        refused2, raw2 = interpret_refusal(self.llm.complete(
+                            prompts.ANSWER_SYSTEM, user + "\n\n" + prompts.RECHECK_REFUSAL))
+                        r.update(rechecked=True, recheck_refused=refused2)
+                        if not refused2:
+                            refused, raw = False, raw2
+                            warnings.append("answered after a second check (the first attempt refused)")
                     distinct = len([n for n in parse_citations(raw) if 1 <= n <= len(chunks)])
-                    if (prompts.NOT_IN_SOURCES not in raw and distinct < self.s.min_citations
+                    if (not refused and distinct < self.s.min_citations
                             and len(chunks) >= self.s.min_citations):
                         log.warning("too few citations - retrying once", extra={"cited": distinct})
                         retry_user = user + "\n\n" + prompts.RETRY_FEW_CITATIONS.format(n=self.s.min_citations)
-                        raw2 = self.llm.complete(prompts.ANSWER_SYSTEM, retry_user)
-                        d2 = len([n for n in parse_citations(raw2) if 1 <= n <= len(chunks)])
+                        refused2, raw2 = interpret_refusal(self.llm.complete(prompts.ANSWER_SYSTEM, retry_user))
+                        d2 = 0 if refused2 else len([n for n in parse_citations(raw2) if 1 <= n <= len(chunks)])
                         if d2 > distinct:
                             raw, distinct = raw2, d2
                         r.update(retried=True)
@@ -131,8 +158,11 @@ class RagService:
             lat["generate"] = round((time.perf_counter() - t0) * 1000, 1)
 
             # 4. validate
-            if prompts.NOT_IN_SOURCES in raw:
+            if refused:
                 return done("out_of_scope", OUT_OF_SCOPE_TEXT, retrieved=len(chunks))
+            if raw.startswith(MARKED):
+                raw = raw[len(MARKED):]
+                warnings.append("the model marked part of the question as not covered by the sources")
             text, order, invalid = clean_and_renumber(raw, len(chunks))
             if invalid:
                 warnings.append(f"removed citations to non-existent sources: {invalid}")

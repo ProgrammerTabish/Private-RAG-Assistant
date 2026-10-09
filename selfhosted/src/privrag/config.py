@@ -72,9 +72,12 @@ class Settings(BaseSettings):
     top_k: int = Field(8, ge=1, le=50, description="chunks handed to the LLM")
     candidate_k: int = Field(40, ge=1, le=500, description="candidates per retriever before fusion")
     max_chunks_per_doc: int = Field(4, ge=1)
+    dense_weight: float = Field(2.0, ge=0, description="RRF weight of the dense (BGE-M3) lists vs keyword lists")
     rerank_backend: Literal["none", "cross-encoder", "remote"] = "none"
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
     rerank_url: str | None = None
+    refusal_recheck: bool = Field(True, description="if the LLM refuses although sources were found, ask it once "
+                                                    "more to re-check them (small models refuse too eagerly)")
     query_rewrite: bool = Field(True, description="ask the LLM for German search terms (cross-lingual sparse search)")
 
     # ---- generation ------------------------------------------------------

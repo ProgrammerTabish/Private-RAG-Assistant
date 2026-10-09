@@ -1,0 +1,18 @@
+{
+ "_comment": "Retrieval test for the HinSchG demo: each question in German and English with the section(s) that answer it. Used by scripts/retrieval_check.py to measure cross-language retrieval (gold section in the top-k sources given to the LLM).",
+ "items": [
+  {"id": "U1", "gold": ["§ 34"], "de": "Wen schützt das Hinweisgeberschutzgesetz neben den hinweisgebenden Personen selbst?", "en": "Who does the Whistleblower Protection Act protect, in addition to the whistleblowers themselves?"},
+  {"id": "U2", "gold": ["§ 19", "§ 20", "§ 21", "§ 22"], "de": "Welche externen Meldestellen gibt es nach dem HinSchG?", "en": "Which external reporting offices exist under the HinSchG?"},
+  {"id": "H01", "gold": ["§ 12"], "de": "Ab wie vielen Beschäftigten muss ein Unternehmen eine interne Meldestelle einrichten?", "en": "From how many employees must a company set up an internal reporting office?"},
+  {"id": "H02", "gold": ["§ 12"], "de": "Muss eine kleine Bank mit nur 20 Beschäftigten eine interne Meldestelle einrichten?", "en": "Does a small bank with only 20 employees need an internal reporting channel under the HinSchG?"},
+  {"id": "H03", "gold": ["§ 17"], "de": "Innerhalb welcher Frist muss die interne Meldestelle den Eingang einer Meldung bestätigen?", "en": "Within what period must the internal reporting office confirm receipt of a report?"},
+  {"id": "H04", "gold": ["§ 17"], "de": "Bis wann muss die interne Meldestelle der hinweisgebenden Person eine Rückmeldung geben?", "en": "By when must the internal reporting office give feedback to the whistleblower?"},
+  {"id": "H05", "gold": ["§ 11"], "de": "Wie lange wird die Dokumentation einer Meldung aufbewahrt?", "en": "How long is the documentation of a report kept?"},
+  {"id": "H06", "gold": ["§ 16"], "de": "Müssen interne Meldestellen anonyme Meldungen bearbeiten?", "en": "Must internal reporting channels accept anonymous reports?"},
+  {"id": "H07", "gold": ["§ 16"], "de": "In welcher Form müssen Meldungen an die interne Meldestelle möglich sein?", "en": "In what form must it be possible to submit reports to the internal reporting office?"},
+  {"id": "H08", "gold": ["§ 14"], "de": "Können mehrere Unternehmen eine gemeinsame interne Meldestelle einrichten?", "en": "Can several companies share one internal reporting office?"},
+  {"id": "H09", "gold": ["§ 36"], "de": "Was gilt, wenn eine hinweisgebende Person nach ihrer Meldung beruflich benachteiligt wird?", "en": "What applies if a whistleblower suffers a professional disadvantage after making a report?"},
+  {"id": "H10", "gold": ["§ 40"], "de": "Welches Bußgeld droht einem Unternehmen, das keine interne Meldestelle einrichtet?", "en": "What fine can a company get for not setting up an internal reporting office?"},
+  {"id": "H11", "gold": ["§ 28"], "de": "Wie lange hat eine externe Meldestelle Zeit für eine Rückmeldung?", "en": "How long does an external reporting office have to give feedback?"}
+ ]
+}

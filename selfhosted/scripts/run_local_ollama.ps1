@@ -127,7 +127,7 @@ try {
         # vLLM on Azure gets max_model_len; Ollama needs num_ctx in a Modelfile, otherwise it silently
         # truncates long RAG prompts (default context is only 2-4k tokens).
         $mf = Join-Path ([IO.Path]::GetTempPath()) "privrag.Modelfile"
-        "FROM $LlmModel`nPARAMETER num_ctx $ContextTokens`nPARAMETER temperature 0`n" |
+        "FROM $LlmModel`nPARAMETER num_ctx $ContextTokens`nPARAMETER temperature 0`nPARAMETER repeat_penalty 1.15`nPARAMETER repeat_last_n 128`n" |
             Set-Content -Path $mf -Encoding ascii
         Invoke-Native "create privrag-llm" { ollama create privrag-llm -f $mf }
         $LlmServed = "privrag-llm"

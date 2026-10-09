@@ -45,9 +45,22 @@ def clean_and_renumber(text: str, n_sources: int) -> tuple[str, list[int], list[
                 invalid.append(k)
         return "".join(f"[{x}]" for x in dict.fromkeys(nums))
 
-    new = CITE.sub(repl, text)
+    new = CITE.sub(repl, collapse_citation_runs(text))
     new = re.sub(r"\s+([.,;])", r"\1", new).strip()
     return new, order, invalid
+
+
+_RUN = re.compile(r"(?:\[\d+\]\s*){2,}")
+
+
+def collapse_citation_runs(text: str, max_markers: int = 4) -> str:
+    """Small models sometimes loop on citation markers ("[1] [2] [3] [1] [2] [3] ...").
+    Collapse every run of adjacent markers to its distinct numbers (first-seen order, max 4)."""
+    def fix(m: re.Match) -> str:
+        nums = list(dict.fromkeys(re.findall(r"\[(\d+)\]", m.group(0))))[:max_markers]
+        tail = " " if m.group(0)[-1:].isspace() else ""
+        return "".join(f"[{n}]" for n in nums) + tail
+    return _RUN.sub(fix, text)
 
 
 def best_quote(chunk_text: str, answer: str, max_len: int = 280) -> str:

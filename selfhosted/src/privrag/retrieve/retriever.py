@@ -37,7 +37,8 @@ def _glossary() -> list[tuple[re.Pattern, list[str]]]:
     raw = json.loads(_GLOSSARY_PATH.read_text(encoding="utf-8"))
     items = [(k, v) for k, v in raw.items() if not k.startswith("_")]
     items.sort(key=lambda kv: -len(kv[0]))  # longest phrase first
-    return [(re.compile(rf"\b{re.escape(k)}\b", re.IGNORECASE), v) for k, v in items]
+    # plural / inflected forms match too ("reporting offices", "Bußgelder")
+    return [(re.compile(rf"\b{re.escape(k)}(?:s|es|n|en|er|e)?\b", re.IGNORECASE), v) for k, v in items]
 
 
 def glossary_terms(question: str) -> list[str]:
@@ -48,11 +49,13 @@ def glossary_terms(question: str) -> list[str]:
     return terms
 
 
-def rrf(rank_lists: list[list[str]], k: int = RRF_K) -> dict[str, float]:
+def rrf(rank_lists: list[list[str]], k: int = RRF_K, weights: list[float] | None = None) -> dict[str, float]:
+    """Reciprocal Rank Fusion; ``weights`` scale each list's contribution (default 1)."""
     scores: dict[str, float] = {}
-    for ranks in rank_lists:
+    for li, ranks in enumerate(rank_lists):
+        w = weights[li] if weights else 1.0
         for r, cid in enumerate(ranks):
-            scores[cid] = scores.get(cid, 0.0) + 1.0 / (k + r + 1)
+            scores[cid] = scores.get(cid, 0.0) + w / (k + r + 1)
     return scores
 
 
@@ -87,10 +90,13 @@ class Retriever:
                  doc_ids: list[str] | None = None, regulators: list[str] | None = None) -> tuple[list[RetrievedChunk], dict]:
         """Multi-query hybrid retrieval.
 
-        Queries: the original question, plus a German version (LLM rewrite and/or
-        glossary terms). Each query runs through dense and BM25 search; all result
-        lists are fused with RRF. Measured on the UC13 question set this is the
-        single biggest retrieval gain for English questions on German documents.
+        * dense (BGE-M3): the original question - BGE-M3 is cross-lingual by itself -
+          plus the LLM's German rewrite if there is one. Never the glossary keyword
+          list: a bag of German keywords embeds badly and pulled English questions
+          to the wrong sections (measured on the HinSchG bilingual set).
+        * keyword (BM25): the original question and a German query (LLM rewrite +
+          glossary terms), because BM25 cannot match English words to German text.
+        * fusion: weighted RRF, dense lists count ``dense_weight`` (default 2).
         """
         top_k = top_k or self.s.top_k
         n = self.s.candidate_k
@@ -100,7 +106,10 @@ class Retriever:
             de_parts += glossary_terms(question)
         de_query = " ".join(dict.fromkeys(p for p in de_parts if p and p.strip())) or None
         debug["german_query"] = de_query
-        queries = [question] + ([de_query] if de_query else [])
+        plan = {
+            "dense": [question] + ([german_query] if german_query and german_query.strip() else []),
+            "sparse": [question] + ([de_query] if de_query else []),
+        }
 
         by_id: dict[str, Chunk] = {}
         lists: dict[str, list[str]] = {}
@@ -108,7 +117,7 @@ class Retriever:
 
         for kind in ("dense", "sparse"):
             t0 = time.perf_counter()
-            for qi, q in enumerate(queries):
+            for qi, q in enumerate(plan[kind]):
                 name = f"{kind}_{'q' if qi == 0 else 'de'}"
                 if kind in failed:
                     break
@@ -132,7 +141,9 @@ class Retriever:
         if len(failed) == 2:
             raise RetrievalError(f"both retrievers failed: {failed['dense']}; {failed['sparse']}", code="RETRIEVE_ALL_FAILED")
 
-        fused = rrf(list(lists.values()))
+        names = list(lists)
+        fused = rrf([lists[nm] for nm in names],
+                    weights=[self.s.dense_weight if nm.startswith("dense") else 1.0 for nm in names])
         dense_ids = lists.get("dense_q", []) or lists.get("dense_de", [])
         sparse_ids = lists.get("sparse_q", []) or lists.get("sparse_de", [])
         dense_rank = {cid: i + 1 for i, cid in enumerate(dense_ids)}
@@ -154,15 +165,23 @@ class Retriever:
                 log.warning("reranker failed - keeping fused order", extra={"error": str(exc)})
             debug["timings_ms"]["rerank"] = round((time.perf_counter() - t0) * 1000, 1)
 
-        # diversity: avoid 8 chunks from one long document crowding out the second source
+        # diversity: avoid 8 chunks from one long document crowding out the second source.
+        # The cap is a preference, not a limit: if fewer documents are relevant (or only one
+        # is loaded), the remaining slots are filled with the next best chunks.
         out: list[RetrievedChunk] = []
+        overflow: list[RetrievedChunk] = []
         per_doc: dict[str, int] = {}
         for r in results:
+            if len(out) >= top_k:
+                break
             if per_doc.get(r.chunk.doc_id, 0) >= self.s.max_chunks_per_doc:
+                overflow.append(r)
                 continue
             per_doc[r.chunk.doc_id] = per_doc.get(r.chunk.doc_id, 0) + 1
             out.append(r)
-            if len(out) >= top_k:
-                break
+        if len(out) < top_k:
+            keep = {id(r) for r in out}
+            filler = [r for r in results if id(r) not in keep][: top_k - len(out)]
+            out = sorted(out + filler, key=lambda r: results.index(r))
         debug["candidates"] = {k: len(v) for k, v in lists.items()} | {"fused": len(fused)}
         return out, debug

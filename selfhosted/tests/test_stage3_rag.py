@@ -60,11 +60,44 @@ def test_retriever_filters(indexed):
     assert res and {r.chunk.doc_id for r in res} == {"02_Test_DORA"}
 
 
-def test_retriever_caps_chunks_per_document(indexed):
+def test_retriever_prefers_different_documents_but_fills_slots(indexed):
+    """Per-document cap is a preference: both documents are represented, and the remaining
+    slots are still filled (a one-document demo must not be limited to max_chunks_per_doc)."""
     indexed.max_chunks_per_doc = 1
-    res, _ = Retriever(indexed).retrieve("Pflichten Meldung")
+    indexed.top_k = 4
+    res, _ = Retriever(indexed).retrieve("Pflichten Meldung Vorfall")
     docs = [r.chunk.doc_id for r in res]
-    assert len(docs) == len(set(docs))
+    assert len(res) == 4
+    assert {"01_Test_GwG", "02_Test_DORA"} <= set(docs)
+
+
+def test_single_document_not_capped(indexed):
+    indexed.max_chunks_per_doc = 2
+    res, _ = Retriever(indexed).retrieve("Sorgfaltspflichten Meldepflicht", doc_ids=["01_Test_GwG"], top_k=4)
+    assert len(res) == min(4, len({r.chunk.chunk_id for r in res})) and len(res) > 2
+
+
+def test_dense_search_uses_question_not_glossary(indexed):
+    """The glossary keyword list must only feed the keyword search, never the dense search."""
+    seen = []
+
+    class Rec:
+        name, dim = "lsa", 8
+        def embed_query(self, t):
+            seen.append(t)
+            from privrag.embed.base import get_embedder
+            return get_embedder(indexed).embed_query(t)
+    q = "Who must report a suspicious transaction to the financial intelligence unit?"
+    _, dbg = Retriever(indexed, embedder=Rec()).retrieve(q)
+    assert seen == [q] and dbg["german_query"]          # glossary used for keywords only
+    seen.clear()
+    Retriever(indexed, embedder=Rec()).retrieve(q, german_query="Verdachtsmeldung Zentralstelle")
+    assert seen == [q, "Verdachtsmeldung Zentralstelle"]  # an LLM rewrite does go to dense search
+
+
+def test_weighted_rrf():
+    s = rrf([["a", "b"], ["b", "a"]], weights=[2.0, 1.0])
+    assert s["a"] > s["b"]
 
 
 def test_retriever_survives_dense_failure(indexed):
@@ -240,3 +273,75 @@ def test_retriever_refuses_other_embedding_model_same_backend(settings, monkeypa
     with pytest.raises(RetrievalError) as e:
         Retriever(settings)
     assert e.value.code == "INDEX_EMBEDDER_MISMATCH" and "e5-large" in str(e.value)
+
+
+# ---------------------------------------------------------------- refusal marker handling (small models)
+@pytest.mark.parametrize("raw,refused", [
+    ("NOT_IN_SOURCES", True),
+    ("NOT_IN_SOURCES.", True),
+    ("NOT_IN_SOURCES\n\nThe act also protects persons who are the subject of a report [1] and supporters [2].", False),
+    ("Die Frist beträgt sieben Tage [1]. NOT_IN_SOURCES für die Rückmeldung.", True),   # too little left
+    ("Die Frist beträgt sieben Tage nach Eingang der Meldung [1]; die Rückmeldung erfolgt binnen drei Monaten [2]. "
+     "Zu Bußgeldern sagen die Quellen nichts: NOT_IN_SOURCES", False),
+    ("NOT_IN_SOURCES - the sources talk about something else entirely and nothing can be said here.", True),  # no cites
+])
+def test_interpret_refusal(raw, refused):
+    from privrag.generate.service import MARKED, interpret_refusal
+    r, text = interpret_refusal(raw)
+    assert r is refused
+    if not refused:
+        assert "NOT_IN_SOURCES" not in text and text.startswith(MARKED)
+
+
+def test_marker_plus_answer_is_answered_with_warning(indexed):
+    class MarkerLLM(FakeLLM):
+        def complete(self, system, user, max_tokens=None):
+            if system.startswith("SEARCH QUERY REWRITE"):
+                return ""
+            return ("NOT_IN_SOURCES\n\nDer Verpflichtete hat Verdachtsfälle unverzüglich der Zentralstelle zu melden [1]. "
+                    "Sorgfaltspflichten gelten bei Transaktionen ab 15 000 Euro [2].")
+    a = RagService(indexed, llm=MarkerLLM()).ask("Meldepflicht Zentralstelle Sorgfaltspflichten")
+    assert a.status == "answered" and "NOT_IN_SOURCES" not in a.answer and not a.answer.startswith("⁣")
+    assert any("not covered" in w for w in a.warnings)
+
+
+def test_glossary_matches_plurals():
+    assert "externe Meldestelle" in glossary_terms("Which external reporting offices exist?")
+    assert "Geldbuße" in glossary_terms("Welche Bußgelder drohen?")
+    assert glossary_terms("The finest offices") == [] or "Bußgeld" not in glossary_terms("The finest offices")
+
+
+def test_refusal_is_rechecked_once(indexed):
+    class FirstRefuses(FakeLLM):
+        n = 0
+        def complete(self, system, user, max_tokens=None):
+            if system.startswith("SEARCH QUERY REWRITE"):
+                return ""
+            self.n += 1
+            if self.n == 1:
+                return "NOT_IN_SOURCES"
+            return super().complete(system, user, max_tokens)
+    llm = FirstRefuses()
+    a = RagService(indexed, llm=llm).ask("Wann hat der Verpflichtete unverzüglich der Zentralstelle zu melden?")
+    assert a.status == "answered" and any("second check" in w for w in a.warnings)
+
+
+def test_true_out_of_scope_still_refused_after_recheck(indexed):
+    class AlwaysRefuses(FakeLLM):
+        answers = 0
+        def complete(self, system, user, max_tokens=None):
+            self.answers += 0 if system.startswith("SEARCH QUERY REWRITE") else 1
+            return "" if system.startswith("SEARCH QUERY REWRITE") else "NOT_IN_SOURCES"
+    llm = AlwaysRefuses()
+    a = RagService(indexed, llm=llm).ask("What is the ECB deposit facility rate?")
+    assert a.status == "out_of_scope" and llm.answers == 2    # one answer + one re-check, no more
+
+
+def test_citation_loop_collapsed():
+    from privrag.generate.answer import collapse_citation_runs
+    looped = "Geschützt sind Unterstützer. [2] [1] [2] [3] [4] [5] [6] [1] [2] [3] [4] [5] [6] [1] [2]"
+    out = collapse_citation_runs(looped)
+    assert out.count("[") == 4 and out.startswith("Geschützt sind Unterstützer. [2][1][3][4]")
+    assert collapse_citation_runs("A [1]. B [2].") == "A [1]. B [2]."
+    text, order, _ = clean_and_renumber(looped, n_sources=6)
+    assert len(order) <= 4 and text.count("[") <= 4
