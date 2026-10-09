@@ -108,7 +108,7 @@ Bachelor or Master students in Computer Science, Data Science or Information Sys
 
 ```bash
 ./make_embeddings.sh   # NVIDIA GPU -> BGE-M3 embeddings -> Qdrant in ./db_data, prints DONE!
-./install_run_rag.sh   # Ollama + mistral-small3.1:24b + RAG API on http://127.0.0.1:8000
+./install_run_rag.sh   # restores rag_db/ embeddings (CPU ok) + Ollama + mistral-small3.1:24b + API on :8000
 ```
 
 Details: [RUN.md](RUN.md)

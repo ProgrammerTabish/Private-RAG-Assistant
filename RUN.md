@@ -6,7 +6,13 @@ everything they need into `./.runtime` (uv, Python 3.11 venv, PyTorch with CUDA,
 | Script | What it does |
 |---|---|
 | `./make_embeddings.sh` | Checks the NVIDIA GPU with `nvidia-smi` (terminates immediately if none), installs the Python deps, parses + chunks the 50 PDFs, embeds every chunk with **BGE-M3 on the GPU** and stores the vectors permanently in a local **Qdrant** database in `./db_data`. Prints a progress line after every 20th embedding and `DONE!` at the end. |
-| `./install_run_rag.sh` | Installs the Python deps and **Ollama** (user space), pulls **`mistral-small3.1:24b`**, keeps Ollama running and starts the RAG API on top of the embeddings in `./db_data`. |
+| `./install_run_rag.sh` | Restores the **prebuilt embeddings** from `rag_db/rag_db_data.tar.gz` into `./db_data` if needed (checksum-verified), installs the Python deps (CPU-only PyTorch when there is no GPU) and **Ollama** (user space), pulls **`mistral-small3.1:24b`**, keeps Ollama running and starts the RAG API. Works on CPU-only machines. |
+
+The repo ships a prebuilt vector DB (`rag_db/`, built with `make_embeddings.sh` on an RTX 2080 SUPER:
+50 PDFs, 12,186 chunks, BGE-M3). On a CPU-only machine just run `./install_run_rag.sh`.
+To rebuild it on a GPU machine: `./make_embeddings.sh`, then
+`tar czf rag_db/rag_db_data.tar.gz db_data/{qdrant,chunks.jsonl,parsed,index_*.json,ingest_state.json,reports,EMBEDDINGS_INFO.txt}`
+and `sha256sum rag_db/rag_db_data.tar.gz | sed 's|rag_db/||' > rag_db/rag_db_data.tar.gz.sha256`.
 
 ```bash
 chmod +x make_embeddings.sh install_run_rag.sh
@@ -50,4 +56,5 @@ run `./install_run_rag.sh` there. Both folders are in `.gitignore`.
 | `OLLAMA_CONTEXT_LENGTH` | `16384` | install_run_rag |
 
 Needs: Linux x86_64, `curl` or `wget`, `tar`, NVIDIA driver (`nvidia-smi`), internet on the first run
-(PyPI, astral.sh, huggingface.co, ollama.com). A 24 GB GPU fits Mistral Small 3.1 (Q4) plus BGE-M3.
+(PyPI, astral.sh, huggingface.co, ollama.com). A 24 GB GPU fits Mistral Small 3.1 (Q4) plus BGE-M3. CPU-only: ~20 GB free RAM; answers take minutes
+(LLM timeout is raised to 30 min automatically, override with `LLM_TIMEOUT_S`).

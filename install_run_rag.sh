@@ -7,7 +7,9 @@
 #
 # * Ollama binary -> ./.runtime/ollama, model weights -> ./db_data/ollama_models
 #   (so ./db_data holds everything needed to move the assistant to another machine)
-# * Python deps are installed into ./.runtime/venv (same environment as make_embeddings.sh)
+# * Uses the prebuilt embeddings from ./rag_db/rag_db_data.tar.gz (unpacked to ./db_data on the
+#   first run, checksum-verified) - no embedding is computed here, so a CPU-only machine is fine
+# * Python deps are installed into ./.runtime/venv; CPU-only PyTorch when there is no NVIDIA GPU
 # * API: http://127.0.0.1:8000  (POST /ask, GET /health, docs at /docs)
 #
 # Optional environment variables:
@@ -35,16 +37,42 @@ die()  { echo -e "\033[1;31m[install_run_rag] ERROR:\033[0m $*" >&2; exit 1; }
 trap 'die "failed at line $LINENO (exit code $?)"' ERR
 
 # ---------------------------------------------------------------- 0. prerequisites
-META="$DB_DIR/index_meta.path.spg_compliance.json"
-[[ -f "$META" && -d "$DB_DIR/qdrant" ]] || die "no vector database in $DB_DIR - run ./make_embeddings.sh first (or copy db_data here)"
-
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L 2>/dev/null | grep -q '^GPU'; then
+  HAS_GPU=1
   [[ -n "${GPU_INDEX:-}" ]] && export CUDA_VISIBLE_DEVICES="$GPU_INDEX"
   log "NVIDIA GPU(s):"
   nvidia-smi --query-gpu=index,name,memory.total,memory.free --format=csv,noheader | sed 's/^/    /'
 else
-  warn "no NVIDIA GPU found by nvidia-smi - Mistral 24B will run on the CPU and be very slow"
+  HAS_GPU=0
+  log "no NVIDIA GPU - running on CPU (prebuilt embeddings are used, only questions are embedded here)"
+  log "  note: Mistral Small 3.1 24B on CPU needs ~20 GB RAM and answers take minutes"
+  # CPU-only PyTorch: ~200 MB instead of ~3 GB of CUDA libraries
+  TORCH_INDEX_URL="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}"
 fi
+
+# ---- vector DB: restore the prebuilt one from rag_db/ if db_data is not there yet
+META="$DB_DIR/index_meta.path.spg_compliance.json"
+ARCHIVE="${RAG_DB_ARCHIVE:-$ROOT/rag_db/rag_db_data.tar.gz}"
+if [[ ! -f "$META" || ! -d "$DB_DIR/qdrant" ]]; then
+  [[ -f "$ARCHIVE" ]] || die "no vector database in $DB_DIR and no prebuilt archive at $ARCHIVE
+       (build one on a GPU machine with ./make_embeddings.sh)"
+  if [[ -f "$ARCHIVE.sha256" ]] && command -v sha256sum >/dev/null 2>&1; then
+    log "verifying $ARCHIVE ..."
+    want="$(tr -d '\r' < "$ARCHIVE.sha256" | awk '{print $1}')"
+    have="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
+    [[ "$want" == "$have" ]] || die "checksum mismatch for $ARCHIVE (expected $want, got $have)"
+  fi
+  log "unpacking prebuilt embeddings + vector DB into $DB_DIR ..."
+  tmp="$RUNTIME/rag_db_unpack"
+  rm -rf "$tmp" && mkdir -p "$tmp" "$(dirname "$DB_DIR")"
+  tar -xzf "$ARCHIVE" -C "$tmp"
+  [[ -d "$tmp/db_data" ]] || die "archive does not contain a db_data/ folder"
+  if [[ -d "$DB_DIR" ]]; then mv "$DB_DIR" "$DB_DIR.old.$(date +%s)"; fi
+  mv "$tmp/db_data" "$DB_DIR"
+  rm -rf "$tmp"
+fi
+[[ -f "$META" && -d "$DB_DIR/qdrant" ]] || die "vector database in $DB_DIR is incomplete"
+log "vector DB: $(grep -o '"points": [0-9]*' "$META" | head -n1 | tr -d '"'), built $(grep -o '"built_at": "[^"]*"' "$META" | cut -d'"' -f4)"
 
 download() {  # download <url> <file>
   if command -v curl >/dev/null 2>&1; then curl -fL --progress-bar "$1" -o "$2"
@@ -72,7 +100,7 @@ setup_python() {
   fi
   log "installing Python dependencies ..."
   if [[ -n "${TORCH_INDEX_URL:-}" ]]; then
-    "$UV" pip install --python "$VENV/bin/python" --index-url "$TORCH_INDEX_URL" "torch>=2.2"
+    "$UV" pip install --python "$VENV/bin/python" --extra-index-url "$TORCH_INDEX_URL" "torch>=2.2"
   fi
   "$UV" pip install --python "$VENV/bin/python" -e "$ROOT/selfhosted" \
       "torch>=2.2" "sentence-transformers>=3.0" "zstandard>=0.22"
@@ -134,7 +162,7 @@ fi
 
 log "pulling $LLM_MODEL (≈15 GB the first time, then cached in $OLLAMA_MODELS) ..."
 "$OLLAMA_BIN" pull "$LLM_MODEL"
-log "loading $LLM_MODEL into memory ..."
+log "loading $LLM_MODEL into memory (can take a few minutes on CPU) ..."
 "$OLLAMA_BIN" run "$LLM_MODEL" "Antworte nur mit OK." >/dev/null
 
 # ---------------------------------------------------------------- 3. RAG API on the existing embeddings
@@ -153,7 +181,9 @@ export PRIVRAG_EMBED_DEVICE="${EMBED_DEVICE:-auto}"
 export PRIVRAG_LLM_BACKEND=openai
 export PRIVRAG_LLM_BASE_URL="http://$OLLAMA_HOST/v1"
 export PRIVRAG_LLM_MODEL="$LLM_MODEL"
-export PRIVRAG_LLM_TIMEOUT_S="${LLM_TIMEOUT_S:-300}"
+if [[ "$HAS_GPU" == 1 ]]; then DEFAULT_TIMEOUT=300; else DEFAULT_TIMEOUT=1800; fi   # CPU generation is slow
+export PRIVRAG_LLM_TIMEOUT_S="${LLM_TIMEOUT_S:-$DEFAULT_TIMEOUT}"
+export PRIVRAG_LLM_MAX_RETRIES="${LLM_MAX_RETRIES:-1}"
 PRIVRAG="$VENV/bin/privrag"
 
 log "checking index + LLM endpoint ..."

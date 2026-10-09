@@ -65,7 +65,7 @@ setup_python() {
   fi
   log "installing Python dependencies (torch with CUDA, sentence-transformers, privrag) ..."
   if [[ -n "${TORCH_INDEX_URL:-}" ]]; then
-    "$UV" pip install --python "$VENV/bin/python" --index-url "$TORCH_INDEX_URL" "torch>=2.2"
+    "$UV" pip install --python "$VENV/bin/python" --extra-index-url "$TORCH_INDEX_URL" "torch>=2.2"
   fi
   "$UV" pip install --python "$VENV/bin/python" -e "$ROOT/selfhosted" \
       "torch>=2.2" "sentence-transformers>=3.0" "zstandard>=0.22"
