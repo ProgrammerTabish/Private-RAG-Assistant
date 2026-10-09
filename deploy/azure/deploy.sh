@@ -105,7 +105,9 @@ PRIVRAG_EMBED_BATCH_SIZE=16
 PRIVRAG_EMBED_TIMEOUT_S=300"
 COMPOSE_B64=$(base64 -w0 docker-compose.yml)
 ENV_B64=$(printf '%s\n' "$ENV_CONTENT" | base64 -w0)
-START_CMD='docker compose up -d --no-build'
+# compose waits for the indexer (hours on CPU) before starting the api, even with -d;
+# run it in the background so run-command (90 min limit) returns immediately
+START_CMD='nohup docker compose up -d --no-build > /opt/privrag/up.log 2>&1 & sleep 20; tail -5 /opt/privrag/up.log'
 [ "$SKIP_START" = "true" ] && START_CMD='echo "SKIP_START=true - stack prepared, not started"'
 VM_SCRIPT=$(cat <<EOS
 set -e
