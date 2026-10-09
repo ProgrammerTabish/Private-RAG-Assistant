@@ -38,6 +38,25 @@ First start: the embeddings container downloads BGE-M3 (~2.3 GB) into `hf_models
 indexer embeds ~12,200 chunks. On a GPU VM this takes minutes; on CPU only it takes hours
 (use the GPU image, see below). Later starts take seconds.
 
+## Azure - one command (Cloud Shell)
+
+Current subscription setup (checked 2026-10-09): no GPU quota, 10 CPU cores for VMs, AI Foundry
+resource with pay-per-token open-weight models. So: **LLM = Llama-3.3-70B-Instruct in AI Foundry**
+(Global Standard, billed per token), **stack = CPU VM with Docker**.
+
+```bash
+# Azure Cloud Shell (bash)
+git clone https://github.com/ProgrammerTabish/private-rag-assistant.git   # asks for GitHub user + token
+cd private-rag-assistant
+bash deploy/azure/deploy.sh          # SKIP_START=true bash deploy/azure/deploy.sh = prepare only
+```
+
+The script creates the Llama deployment, builds the image in `rgcontainerrag`, creates
+`vm-privrag` (own VNet, no SSH port open), starts the stack and opens port 8000 only for the
+web app's outbound IPs (`ALLOW_IPS=1.2.3.4` adds more). It prints the API URL; the API key is in
+`~/.privrag_api_key` in Cloud Shell and in `/opt/privrag/.env` on the VM. Existing resources
+are not modified. Note: "Global Standard" means Azure may process LLM requests in any region.
+
 ## API (port 8000)
 
 | Method | Path | |

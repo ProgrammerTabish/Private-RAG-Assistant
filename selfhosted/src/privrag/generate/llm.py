@@ -41,6 +41,8 @@ class OpenAICompatLLM:
             base_url=s.llm_base_url, api_key=s.llm_api_key, model=s.llm_model,
             temperature=s.llm_temperature, max_tokens=s.llm_max_tokens,
             timeout=s.llm_timeout_s, max_retries=s.llm_max_retries,
+            # Azure AI Foundry / Azure OpenAI accept the key as "api-key"; other servers ignore it
+            default_headers={"api-key": s.llm_api_key} if s.llm_api_key and s.llm_api_key != "not-needed" else None,
         )
 
     def complete(self, system: str, user: str, max_tokens: int | None = None) -> str:

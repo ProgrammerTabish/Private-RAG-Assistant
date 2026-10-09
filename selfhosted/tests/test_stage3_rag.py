@@ -345,3 +345,12 @@ def test_citation_loop_collapsed():
     assert collapse_citation_runs("A [1]. B [2].") == "A [1]. B [2]."
     text, order, _ = clean_and_renumber(looped, n_sources=6)
     assert len(order) <= 4 and text.count("[") <= 4
+
+
+def test_llm_key_also_sent_as_azure_api_key_header(indexed):
+    with MockServer() as srv:
+        s = _openai_settings(indexed, srv.url, query_rewrite=False)
+        s = Settings(**(s.model_dump() | {"llm_api_key": "k-123"}), _env_file=None)
+        RagService(s).ask("Meldepflicht")
+    from mock_vllm import STATE as st
+    assert st.get("headers", {}).get("api-key") == "k-123"

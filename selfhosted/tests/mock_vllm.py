@@ -23,6 +23,7 @@ app = FastAPI()
 async def chat(req: Request):
     body = await req.json()
     STATE["requests"].append(body)
+    STATE["headers"] = dict(req.headers)
     if STATE["delay"]:
         time.sleep(STATE["delay"])
     if STATE["mode"] == "500":

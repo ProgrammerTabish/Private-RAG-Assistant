@@ -39,7 +39,7 @@ services:
 
   indexer:
     build: .
-    image: privrag-api:latest
+    image: ${API_IMAGE:-privrag-api:latest}
     command: ["privrag", "init"]
     restart: "no"
     env_file: [.env]
@@ -58,7 +58,7 @@ services:
       - embeddings
 
   api:
-    image: privrag-api:latest
+    image: ${API_IMAGE:-privrag-api:latest}
     restart: unless-stopped
     env_file: [.env]
     environment: *privrag_env
