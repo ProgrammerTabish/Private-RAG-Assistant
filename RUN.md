@@ -58,3 +58,25 @@ run `./install_run_rag.sh` there. Both folders are in `.gitignore`.
 Needs: Linux x86_64, `curl` or `wget`, `tar`, NVIDIA driver (`nvidia-smi`), internet on the first run
 (PyPI, astral.sh, huggingface.co, ollama.com). A 24 GB GPU fits Mistral Small 3.1 (Q4) plus BGE-M3. CPU-only: ~20 GB free RAM; answers take minutes
 (LLM timeout is raised to 30 min automatically, override with `LLM_TIMEOUT_S`).
+
+## Windows: `install_run_rag.exe`
+
+Same steps as `install_run_rag.sh`, as one double-clickable program (no admin rights, no Docker):
+restores `rag_db/` into `db_data\`, installs uv + Python 3.11 + packages into `.runtime\`
+(CUDA PyTorch if `nvidia-smi` finds a GPU, otherwise CPU), installs Ollama into `.runtime\ollama`
+(or reuses a running/installed one), pulls `mistral-small3.1:24b`, starts the API and prints:
+
+```
+ This PC:   http://127.0.0.1:8000/ask
+ Network:   http://192.168.x.y:8000/ask
+ API key:   <generated once, saved in .runtime\api_key.txt>
+```
+
+1. Clone or download the repo, keep `install_run_rag.exe` in the repo folder.
+2. Double-click it (SmartScreen: "More info" -> "Run anyway"; the exe is not code-signed).
+3. When Windows Firewall asks about `python.exe`, allow it so other machines can reach port 8000.
+
+Options (run from a terminal): `install_run_rag.exe --api-key hello123 --host 127.0.0.1 --port 8000
+--model mistral:7b`. Close the window or press Ctrl+C to stop API and Ollama.
+Source: `launcher/main.go` (Go, stdlib only). Rebuild:
+`cd launcher && GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o ../install_run_rag.exe .`
